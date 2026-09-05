@@ -5,6 +5,24 @@
 const SUPA_URL = 'https://pnzabwfsgkvejnrtrjcp.supabase.co';
 const SUPA_KEY = 'sb_publishable_DCzX82HTZ1avt-NJxGAz4Q_6ZlxMudV';
 const BUCKET = 'thumb-assets';
+const GITHUB_REPO = 'giandcdalcorso11-coder/GDC-thumbnail-generator';
+
+// Link diretti per gestire secret/chiavi API senza dover cercare — usati in providers.html
+function supabaseSecretsUrl(){
+  const ref = SUPA_URL.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+  return ref ? `https://supabase.com/dashboard/project/${ref}/settings/functions` : 'https://supabase.com/dashboard';
+}
+function githubSecretsUrl(){
+  return `https://github.com/${GITHUB_REPO}/settings/secrets/actions`;
+}
+const PROVIDER_KEY_LINKS = {
+  huggingface: { label: 'Crea token gratuito Hugging Face', url: 'https://huggingface.co/settings/tokens' },
+  fal:         { label: 'Crea API key fal.ai',               url: 'https://fal.ai/dashboard/keys' },
+  replicate:   { label: 'Crea token Replicate',               url: 'https://replicate.com/account/api-tokens' },
+  anthropic:   { label: 'Crea chiave Anthropic',               url: 'https://console.anthropic.com/settings/keys' },
+  openai:      { label: 'Crea chiave OpenAI',                  url: 'https://platform.openai.com/api-keys' },
+  manual:      null,
+};
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 function getToken(){ return sessionStorage.getItem('thumb_token'); }

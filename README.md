@@ -42,6 +42,18 @@ scripts/capture_frames.py       → yt-dlp + ffmpeg + rilevamento volto (OpenCV)
 
 ## Setup
 
+### 0. Configurazione 100% gratuita di default
+
+Di default **entrambi** i motori AI (analisi script e generazione immagini)
+sono impostati su **Hugging Face**, che ha un livello gratuito: l'unico
+costo è il tuo tempo per creare un token gratuito su
+huggingface.co/settings/tokens e incollarlo come secret `HF_TOKEN` (vedi
+punto 2). Nessuna carta di credito richiesta per iniziare. Il compromesso:
+modelli meno potenti di Claude/GPT per l'analisi, e senza vincolo di identità
+del volto per le immagini (vedi tabella al punto 3). Puoi passare a un
+motore più potente (a pagamento) in qualsiasi momento da **providers.html**,
+con un click — mai una modifica al codice.
+
 ### 1. Credenziali Supabase già pronte
 
 Il progetto Supabase è lo stesso del workspace GDC (`pnzabwfsgkvejnrtrjcp`), già
@@ -51,40 +63,54 @@ configurato in `assets/app.js`. Le tabelle `thumb_*`, lo storage bucket
 Per accedere in `login.html` usa un utente già esistente in Supabase Auth su
 questo progetto (stessa base utenti del workspace GDC principale).
 
-### 2. Secret delle Edge Function (Supabase Dashboard → Edge Functions → Secrets)
+### 2. Secret delle Edge Function
 
-| Secret | Serve per | Obbligatorio? |
+Vai su **providers.html** → pulsante "🔐 Apri i secret su Supabase" (ti porta
+dritto alla pagina secret del progetto giusto, calcolata automaticamente
+dall'URL configurato). Ogni provider elencato nella pagina mostra anche un
+link diretto per creare la relativa chiave API.
+
+| Secret | Serve per | Costo |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | `analyze-script` (analisi AI dello script) | Sì, per usare "Analizza con AI" |
-| `HF_TOKEN` | Provider Hugging Face (gratuito) | Solo se attivi quel provider |
-| `FAL_KEY` | Provider fal.ai (identità volto coerente) | Solo se attivi quel provider |
-| `REPLICATE_API_TOKEN` | Provider Replicate (identità volto coerente) | Solo se attivi quel provider |
+| `HF_TOKEN` | Hugging Face — motore **di default**, sia analisi script che immagini | Gratuito |
+| `ANTHROPIC_API_KEY` | Motore testo alternativo (Claude, più preciso) | A pagamento |
+| `OPENAI_API_KEY` | Motore testo alternativo (GPT-4o mini) | A pagamento |
+| `FAL_KEY` | Motore immagini alternativo (fal.ai, identità volto coerente) | A pagamento (crediti gratuiti iniziali) |
+| `REPLICATE_API_TOKEN` | Motore immagini alternativo (Replicate, identità volto coerente) | A pagamento |
 
-Senza `ANTHROPIC_API_KEY` il resto del tool funziona lo stesso: l'analisi AI
-mostrerà solo un messaggio d'errore, tutto il resto (galleria, generazione,
-editor, proposte) non dipende da essa.
+Senza nessun secret impostato il tool resta comunque usabile: ogni chiamata
+AI mostra semplicemente un messaggio d'errore chiaro ("secret non
+configurato"), il resto (clienti, galleria, editor, proposte) non dipende
+da nessuna di queste chiavi.
 
-### 3. Motore di generazione immagini — cambiarlo è un click
+### 3. Due motori intercambiabili, cambiabili in ogni momento
 
-Vai su **providers.html** ("⚙️ Motore immagini" nella barra in alto): è
-già presente un provider **Manuale** attivo di default (nessuna chiave
-richiesta: generi l'immagine altrove — es. ChatGPT/Midjourney/Bing — e la
-carichi nella scheda "Genera proposte"). Sono anche pre-caricati, pronti da
-attivare appena imposti la relativa chiave:
+**providers.html** ha due sezioni indipendenti, ciascuna con un solo
+provider attivo alla volta:
 
-- **Hugging Face — FLUX.1-schnell**: gratuito (serve solo un token gratuito
-  da huggingface.co/settings/tokens), testo→immagine, **senza** identità del
-  volto vincolata (buono per iniziare / per grafica generica).
-- **fal.ai — InstantID**: a pagamento (con crediti gratuiti di benvenuto),
-  mantiene il volto di riferimento coerente tra le pose.
-- **Replicate — InstantID**: idem, tariffazione a consumo.
+**Analisi script (testo)**
+| Provider | Costo | Note |
+|---|---|---|
+| Hugging Face — Mistral-7B-Instruct | Gratuito | **Attivo di default.** Meno preciso di Claude/GPT ma zero costi. |
+| Anthropic — Claude Haiku | A pagamento | Analisi più accurata e affidabile in JSON. |
+| OpenAI — GPT-4o mini | A pagamento | Alternativa ad Anthropic. |
 
-Per attivarne uno: imposta il secret richiesto su Supabase, poi premi
-"Attiva" sulla sua card in `providers.html`. Puoi anche aggiungere un
-provider "personalizzato" (stesso tipo, modello diverso, o un tuo endpoint)
-dal pulsante in fondo alla pagina — nessuna modifica al codice necessaria.
-La generazione passa sempre dalla stessa Edge Function `generate-thumbnail`,
-che legge il provider attivo dalla tabella `thumb_image_providers`.
+**Generazione immagini**
+| Provider | Costo | Note |
+|---|---|---|
+| Hugging Face — FLUX.1-schnell | Gratuito | **Attivo di default.** Testo→immagine, **senza** vincolo di identità del volto tra le pose. |
+| fal.ai — InstantID | A pagamento (crediti gratuiti iniziali) | Mantiene il volto di riferimento coerente tra le pose. |
+| Replicate — InstantID | A pagamento | Idem, tariffazione a consumo. |
+| Manuale | Gratuito | Generi l'immagine altrove (ChatGPT/Midjourney/Bing/Higgsfield/…) e la carichi tu nella scheda "Genera proposte". |
+
+Per cambiare: imposta il secret richiesto (punto 2), poi premi "Attiva"
+sulla card del provider in `providers.html` — vale sia per l'analisi script
+sia per la generazione immagini, indipendentemente. Puoi anche modificare il
+modello di un provider esistente (pulsante "Modifica", es. se un modello
+Hugging Face smette di essere ospitato gratuitamente, ne scegli un altro
+senza toccare il codice), o aggiungerne uno del tutto nuovo (stesso tipo,
+endpoint diverso, o un provider non ancora previsto come Higgsfield —
+richiede solo di scrivere l'adattatore nella Edge Function corrispondente).
 
 ### 4. Raccolta screenshot del volto — manuale e/o automatica, per cliente
 

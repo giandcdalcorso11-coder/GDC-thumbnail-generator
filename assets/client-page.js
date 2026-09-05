@@ -12,6 +12,8 @@ let GALLERY = [];
 let JOBS = [];
 let PROVIDERS = [];
 let ACTIVE_PROVIDER = null;
+let TEXT_PROVIDERS = [];
+let ACTIVE_TEXT_PROVIDER = null;
 let SELECTED_VIDEO_ID = null;
 let GALLERY_FILTER = 'all';
 let CURRENT_SCRIPT_ROW = null;
@@ -34,7 +36,7 @@ async function init(){
   initTabs(document.getElementById('tabBar').parentElement);
   wireGlobalHandlers();
 
-  await Promise.all([loadVideos(), loadGallery(), loadProviders()]);
+  await Promise.all([loadVideos(), loadGallery(), loadProviders(), loadTextProviders()]);
   loadCaptureJobs();
 }
 
@@ -331,10 +333,20 @@ async function saveScript(){
   } catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
+async function loadTextProviders(){
+  TEXT_PROVIDERS = await sbSelect('thumb_text_providers', 'select=*');
+  ACTIVE_TEXT_PROVIDER = TEXT_PROVIDERS.find(p => p.active) || null;
+  const el = document.getElementById('activeTextProviderBox');
+  if (!el) return;
+  if (!ACTIVE_TEXT_PROVIDER){ el.innerHTML = '<span class="text-grigio text-sm">Nessun motore di analisi attivo — vai in Motori AI.</span>'; return; }
+  el.innerHTML = `<span class="tag tag-maker">${escapeHtml(ACTIVE_TEXT_PROVIDER.name)}</span> <span class="text-xs text-grigio">${ACTIVE_TEXT_PROVIDER.kind}${ACTIVE_TEXT_PROVIDER.config?.model ? ' · ' + escapeHtml(ACTIVE_TEXT_PROVIDER.config.model) : ''}</span>`;
+}
+
 async function analyzeScript(){
   if (!SELECTED_VIDEO_ID) { toast('Seleziona prima un video', 'err'); return; }
   const content = document.getElementById('scriptContent').value.trim();
   if (!content) { toast('Incolla prima lo script', 'err'); return; }
+  if (!ACTIVE_TEXT_PROVIDER) { toast('Nessun motore di analisi attivo — vai in Motori AI', 'err'); return; }
   const errEl = document.getElementById('scriptError');
   errEl.classList.add('hidden');
   const btn = document.getElementById('analyzeBtn');
@@ -342,6 +354,8 @@ async function analyzeScript(){
   try {
     const { ok, data } = await callEdgeFunction('analyze-script', {
       content,
+      provider_kind: ACTIVE_TEXT_PROVIDER.kind,
+      provider_config: ACTIVE_TEXT_PROVIDER.config,
       client_context: { name: CLIENT.name, niche: CLIENT.niche, tone: CLIENT.tone },
     });
     if (!ok) throw new Error(data.error || 'Errore sconosciuto');

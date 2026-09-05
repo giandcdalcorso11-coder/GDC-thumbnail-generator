@@ -1,26 +1,27 @@
 // analyze-script
-// Riceve lo script/testo di un video e restituisce un'analisi (tono, argomento,
-// mood visivo, palette, idee di titolo, pose/espressioni consigliate) usando
-// Claude. La chiave API non tocca mai il browser: resta come secret dell'Edge
-// Function (ANTHROPIC_API_KEY), impostabile da Supabase Dashboard → Edge
-// Functions → Secrets, o via `supabase secrets set ANTHROPIC_API_KEY=...`.
+// Analizza lo script di un video (tono, argomento, mood, palette, titoli,
+// pose/espressioni consigliate) con un motore di testo intercambiabile,
+// esattamente come generate-thumbnail per le immagini: il frontend passa
+// `provider_kind` + `provider_config` letti dalla riga attiva di
+// thumb_text_providers, quindi cambiare motore = un click in providers.html,
+// non una modifica di codice. Le chiavi restano solo come secret della
+// Edge Function, mai nel browser.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
-const ANTHROPIC_MODEL = Deno.env.get("ANALYZE_MODEL") || "claude-haiku-4-5-20251001";
+type ProviderKind = "huggingface" | "anthropic" | "openai";
 
 interface AnalyzeRequest {
   content: string;
-  client_context?: {
-    name?: string;
-    niche?: string;
-    tone?: string;
-  };
+  provider_kind?: ProviderKind;
+  provider_config?: Record<string, unknown>;
+  client_context?: { name?: string; niche?: string; tone?: string };
 }
 
 const SYSTEM_PROMPT = `Sei un art director specializzato in miniature YouTube ad alto CTR.
 Ricevi lo script (o una bozza/scaletta) di un video e devi restituire SOLO un
-oggetto JSON valido (nessun testo fuori dal JSON, nessun markdown) con questa forma esatta:
+oggetto JSON valido (nessun testo fuori dal JSON, nessun markdown, nessuna
+spiegazione) con questa forma esatta:
 
 {
   "topic": "riassunto dell'argomento in una frase",
@@ -38,72 +39,122 @@ Le title_suggestions devono essere brevi (max 6-7 parole), ad alto impatto, in i
 se lo script è in italiano. I colori in color_palette devono essere coerenti col tono
 e, se forniti, con i colori del brand del cliente.`;
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
-
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) {
-    return jsonResponse({
-      ok: false,
-      error: "ANTHROPIC_API_KEY non configurata sul progetto Supabase. Impostala nei secrets della Edge Function per abilitare l'analisi AI dello script.",
-    }, 500);
-  }
-
-  let body: AnalyzeRequest;
-  try {
-    body = await req.json();
-  } catch {
-    return jsonResponse({ ok: false, error: "Body JSON non valido" }, 400);
-  }
-
-  const content = (body.content || "").trim();
-  if (!content) return jsonResponse({ ok: false, error: "Script vuoto" }, 400);
-
-  const ctx = body.client_context || {};
-  const userMsg = [
-    ctx.name ? `Cliente/canale: ${ctx.name}` : null,
-    ctx.niche ? `Nicchia: ${ctx.niche}` : null,
-    ctx.tone ? `Tono abituale del canale: ${ctx.tone}` : null,
+function buildUserMessage(content: string, ctx: AnalyzeRequest["client_context"]): string {
+  return [
+    ctx?.name ? `Cliente/canale: ${ctx.name}` : null,
+    ctx?.niche ? `Nicchia: ${ctx.niche}` : null,
+    ctx?.tone ? `Tono abituale del canale: ${ctx.tone}` : null,
     "",
     "Script del video:",
     content,
   ].filter(Boolean).join("\n");
+}
+
+function extractJson(raw: string): unknown {
+  let cleaned = raw.trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) cleaned = cleaned.slice(start, end + 1);
+  return JSON.parse(cleaned);
+}
+
+async function runAnthropic(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?: unknown; error?: string }> {
+  const secretName = (req.provider_config?.secret_name as string) || "ANTHROPIC_API_KEY";
+  const apiKey = Deno.env.get(secretName);
+  if (!apiKey) return { ok: false, error: `Secret '${secretName}' non configurato (Anthropic). Crea una chiave su console.anthropic.com/settings/keys e impostala nei secrets.` };
+  const model = (req.provider_config?.model as string) || "claude-haiku-4-5-20251001";
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model, max_tokens: 1024, system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildUserMessage(req.content, req.client_context) }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `Anthropic error ${res.status}: ${await res.text()}` };
+  const data = await res.json();
+  const textBlock = (data.content || []).find((b: { type: string }) => b.type === "text");
+  try { return { ok: true, analysis: extractJson(textBlock?.text || "") }; }
+  catch { return { ok: false, error: "Risposta del modello non in formato JSON valido" }; }
+}
+
+async function runOpenAI(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?: unknown; error?: string }> {
+  const secretName = (req.provider_config?.secret_name as string) || "OPENAI_API_KEY";
+  const apiKey = Deno.env.get(secretName);
+  if (!apiKey) return { ok: false, error: `Secret '${secretName}' non configurato (OpenAI). Crea una chiave su platform.openai.com/api-keys e impostala nei secrets.` };
+  const model = (req.provider_config?.model as string) || "gpt-4o-mini";
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserMessage(req.content, req.client_context) },
+      ],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `OpenAI error ${res.status}: ${await res.text()}` };
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || "";
+  try { return { ok: true, analysis: extractJson(text) }; }
+  catch { return { ok: false, error: "Risposta del modello non in formato JSON valido" }; }
+}
+
+// Motore GRATUITO di default: Hugging Face Inference API su un modello
+// instruct open-source. Nessun costo, serve solo un token gratuito da
+// huggingface.co/settings/tokens. Il modello è configurabile in
+// providers.html in qualsiasi momento (es. se quello di default non fosse
+// più disponibile in hosted inference).
+async function runHuggingFace(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?: unknown; error?: string }> {
+  const secretName = (req.provider_config?.secret_name as string) || "HF_TOKEN";
+  const token = Deno.env.get(secretName);
+  if (!token) return { ok: false, error: `Secret '${secretName}' non configurato (Hugging Face). Crea un token gratuito su huggingface.co/settings/tokens e impostalo nei secrets.` };
+  const model = (req.provider_config?.model as string) || "mistralai/Mistral-7B-Instruct-v0.2";
+
+  const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\n${buildUserMessage(req.content, req.client_context)} [/INST]`;
+
+  const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: { max_new_tokens: 700, return_full_text: false, temperature: 0.4 },
+    }),
+  });
+  if (res.status === 503) {
+    const info = await res.json().catch(() => ({}));
+    return { ok: false, error: `Modello in caricamento su Hugging Face, riprova tra ~${Math.ceil(info.estimated_time || 20)}s.` };
+  }
+  if (!res.ok) return { ok: false, error: `Hugging Face error ${res.status}: ${await res.text()}` };
+  const data = await res.json();
+  const text = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
+  try { return { ok: true, analysis: extractJson(text || "") }; }
+  catch { return { ok: false, error: "Il modello gratuito non ha risposto in JSON valido — riprova, oppure cambia modello/provider in Impostazioni." }; }
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
+
+  let body: AnalyzeRequest;
+  try { body = await req.json(); } catch { return jsonResponse({ ok: false, error: "Body JSON non valido" }, 400); }
+
+  const content = (body.content || "").trim();
+  if (!content) return jsonResponse({ ok: false, error: "Script vuoto" }, 400);
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userMsg }],
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      return jsonResponse({ ok: false, error: `Anthropic API error ${res.status}: ${errText}` }, 502);
+    let result: { ok: boolean; analysis?: unknown; error?: string };
+    switch (body.provider_kind) {
+      case "anthropic": result = await runAnthropic(body); break;
+      case "openai": result = await runOpenAI(body); break;
+      case "huggingface":
+      default: result = await runHuggingFace(body); break;
     }
-
-    const data = await res.json();
-    const textBlock = (data.content || []).find((b: { type: string }) => b.type === "text");
-    const raw = textBlock?.text || "";
-
-    let analysis;
-    try {
-      const cleaned = raw.trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
-      analysis = JSON.parse(cleaned);
-    } catch {
-      return jsonResponse({ ok: false, error: "Risposta del modello non in formato JSON valido", raw }, 502);
-    }
-
-    return jsonResponse({ ok: true, analysis });
+    return jsonResponse(result, result.ok ? 200 : 422);
   } catch (e) {
     return jsonResponse({ ok: false, error: String(e) }, 500);
   }

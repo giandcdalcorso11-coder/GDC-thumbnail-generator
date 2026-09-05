@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GDC Thumbnail Studio — Motore immagini</title>
+<title>GDC Thumbnail Studio — Motori AI</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <a class="btn btn-gh btn-sm" href="clients.html">← Clienti</a>
-    <div class="brand"><span class="brand-dot"></span> Motore immagini</div>
+    <div class="brand"><span class="brand-dot"></span> Motori AI</div>
   </div>
   <div class="topbar-right">
     <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
@@ -19,39 +19,43 @@
 </div>
 
 <div class="container-sm">
-  <div class="ttl">Provider di generazione immagini</div>
+  <div class="ttl">Motori AI del tool</div>
   <p class="text-sm text-grigio mb-8">
-    Solo un provider è "attivo" alla volta: è quello che verrà usato dalla scheda
-    <b>Genera proposte</b> di ogni cliente. Cambiare motore = un click qui sotto,
-    nessuna modifica al codice. Ogni provider ha bisogno di una chiave API salvata
-    come <b>secret</b> della Edge Function <code>generate-thumbnail</code> su Supabase
-    (Dashboard → Edge Functions → Secrets) — non viene mai scritta o esposta nel browser.
+    Due motori indipendenti, ognuno con un solo provider "attivo" alla volta:
+    quello per <b>generare le immagini</b> e quello per <b>analizzare gli script</b>.
+    Cambiare motore o modello è un click qui sotto — nessuna modifica al codice.
+    Di default sono impostati i provider <b>gratuiti</b> (Hugging Face): funzionano
+    con un semplice token gratuito, senza carta di credito.
   </p>
+  <div class="flex gap-8 mb-12" style="flex-wrap:wrap;">
+    <a class="btn btn-s btn-sm" href="#" onclick="window.open(supabaseSecretsUrl(),'_blank');return false;">🔐 Apri i secret su Supabase</a>
+    <a class="btn btn-s btn-sm" href="#" onclick="window.open(githubSecretsUrl(),'_blank');return false;">🔐 Apri i secret su GitHub (per la raccolta frame)</a>
+  </div>
 
-  <div id="providerList"></div>
+  <div class="section-lbl">✨ Generazione immagini</div>
+  <div id="imageProviderList" class="mb-12"></div>
+  <button class="btn btn-s btn-block mb-12" onclick="openNewProvider('image')">＋ Aggiungi provider immagine personalizzato</button>
 
-  <button class="btn btn-s btn-block mt-12" onclick="openNewProvider()">＋ Aggiungi provider personalizzato</button>
+  <div class="section-lbl">📝 Analisi script (testo)</div>
+  <div id="textProviderList" class="mb-12"></div>
+  <button class="btn btn-s btn-block" onclick="openNewProvider('text')">＋ Aggiungi provider testo personalizzato</button>
 </div>
 
 <div class="overlay" id="provOverlay" onclick="if(event.target===this) closeOverlay('provOverlay')">
   <div class="sheet">
     <div class="sheet-header">
-      <span class="sheet-title">Nuovo provider</span>
+      <span class="sheet-title" id="provSheetTitle">Nuovo provider</span>
       <button class="sheet-close" onclick="closeOverlay('provOverlay')">✕</button>
     </div>
     <form id="provForm">
+      <input type="hidden" id="pf_target">
       <div class="field">
         <label class="lbl">Nome visualizzato</label>
         <input class="inp" id="pf_name" required placeholder="Es. Replicate — SDXL personalizzato">
       </div>
       <div class="field">
         <label class="lbl">Tipo</label>
-        <select class="select" id="pf_kind">
-          <option value="huggingface">Hugging Face Inference API</option>
-          <option value="fal">fal.ai</option>
-          <option value="replicate">Replicate</option>
-          <option value="manual">Manuale (carica immagine a mano)</option>
-        </select>
+        <select class="select" id="pf_kind"></select>
       </div>
       <div class="field">
         <label class="lbl">Modello (id sul provider)</label>
@@ -74,68 +78,105 @@
 <script>
 if (!requireAuth()) {}
 
-const KIND_LABEL = { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', manual:'Manuale' };
-const KIND_TAG = { huggingface:'tag-athlete', fal:'tag-maker', replicate:'tag-sabbia', manual:'tag-grigio' };
-let PROVIDERS = [];
+const SECTIONS = {
+  image: {
+    table: 'thumb_image_providers', listId: 'imageProviderList',
+    kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', manual:'Manuale' },
+    tagClass: { huggingface:'tag-athlete', fal:'tag-maker', replicate:'tag-sabbia', manual:'tag-grigio' },
+  },
+  text: {
+    table: 'thumb_text_providers', listId: 'textProviderList',
+    kinds: { huggingface:'Hugging Face', anthropic:'Anthropic', openai:'OpenAI' },
+    tagClass: { huggingface:'tag-athlete', anthropic:'tag-sabbia', openai:'tag-maker' },
+  },
+};
+const DATA = { image: [], text: [] };
 
-async function loadProviders(){
-  document.getElementById('providerList').innerHTML = '<div class="loader">Caricamento…</div>';
-  PROVIDERS = await sbSelect('thumb_image_providers', 'select=*&order=created_at.asc');
-  renderProviders();
+async function loadSection(key){
+  const s = SECTIONS[key];
+  document.getElementById(s.listId).innerHTML = '<div class="loader">Caricamento…</div>';
+  DATA[key] = await sbSelect(s.table, 'select=*&order=created_at.asc');
+  renderSection(key);
 }
 
-function renderProviders(){
-  document.getElementById('providerList').innerHTML = PROVIDERS.map(p => `
-    <div class="card ${p.active ? '' : ''}" style="${p.active ? 'border-color:var(--maker);' : ''}">
-      <div class="flex items-center justify-between">
+function renderSection(key){
+  const s = SECTIONS[key];
+  document.getElementById(s.listId).innerHTML = DATA[key].map(p => {
+    const keyLink = PROVIDER_KEY_LINKS[p.kind];
+    return `
+    <div class="card" style="${p.active ? 'border-color:var(--maker);' : ''}">
+      <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:8px;">
         <div>
           <div style="font-weight:800;font-size:14px;">${escapeHtml(p.name)}</div>
           <div class="flex gap-6 mt-8" style="flex-wrap:wrap;">
-            <span class="tag ${KIND_TAG[p.kind]}">${KIND_LABEL[p.kind]}</span>
+            <span class="tag ${s.tagClass[p.kind]}">${s.kinds[p.kind] || p.kind}</span>
             ${p.config?.model ? `<span class="tag tag-grigio">${escapeHtml(p.config.model)}</span>` : ''}
             ${p.active ? '<span class="tag tag-maker">✓ Attivo</span>' : ''}
           </div>
-          ${p.config?.secret_name ? `<div class="text-xs text-grigio mt-8">Richiede secret: <code>${escapeHtml(p.config.secret_name)}</code></div>` : ''}
+          ${p.config?.secret_name ? `<div class="text-xs text-grigio mt-8">Richiede secret <code>${escapeHtml(p.config.secret_name)}</code>${keyLink ? ` — <a href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ↗</a>` : ''}</div>` : ''}
         </div>
         <div class="flex gap-6" style="flex-direction:column;">
-          ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateProvider('${p.id}')">Attiva</button>` : ''}
-          <button class="btn btn-gh btn-sm" onclick="deleteProvider('${p.id}')">Elimina</button>
+          ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateProvider('${key}','${p.id}')">Attiva</button>` : ''}
+          <button class="btn btn-gh btn-sm" onclick="editProvider('${key}','${p.id}')">Modifica</button>
+          <button class="btn btn-gh btn-sm" onclick="deleteProviderRow('${key}','${p.id}')">Elimina</button>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-async function activateProvider(id){
+async function activateProvider(key, id){
+  const s = SECTIONS[key];
   try {
-    // un solo provider attivo alla volta: disattiva tutti, poi attiva il selezionato
-    await sbUpdate('thumb_image_providers', 'active=eq.true', { active: false });
-    await sbUpdate('thumb_image_providers', `id=eq.${id}`, { active: true });
+    await sbUpdate(s.table, 'active=eq.true', { active: false });
+    await sbUpdate(s.table, `id=eq.${id}`, { active: true });
     toast('Provider attivato', 'ok');
-    loadProviders();
+    loadSection(key);
   } catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
-async function deleteProvider(id){
+async function deleteProviderRow(key, id){
   if (!confirm('Eliminare questo provider?')) return;
-  try {
-    await sbDelete('thumb_image_providers', `id=eq.${id}`);
-    loadProviders();
-  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+  try { await sbDelete(SECTIONS[key].table, `id=eq.${id}`); loadSection(key); }
+  catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
-function openNewProvider(){
+function fillKindSelect(target){
+  const sel = document.getElementById('pf_kind');
+  sel.innerHTML = Object.entries(SECTIONS[target].kinds).map(([k,l]) => `<option value="${k}">${l}</option>`).join('');
+}
+
+function openNewProvider(target){
   document.getElementById('provForm').reset();
+  document.getElementById('pf_target').value = target;
+  document.getElementById('provSheetTitle').textContent = 'Nuovo provider — ' + (target === 'image' ? 'immagini' : 'testo');
+  fillKindSelect(target);
+  document.getElementById('provForm').dataset.editId = '';
+  openOverlay('provOverlay');
+}
+
+function editProvider(key, id){
+  const p = DATA[key].find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('pf_target').value = key;
+  fillKindSelect(key);
+  document.getElementById('pf_name').value = p.name;
+  document.getElementById('pf_kind').value = p.kind;
+  document.getElementById('pf_model').value = p.config?.model || '';
+  document.getElementById('pf_secret').value = p.config?.secret_name || '';
+  document.getElementById('pf_extra').value = p.config?.extra_params ? JSON.stringify(p.config.extra_params) : '';
+  document.getElementById('provSheetTitle').textContent = 'Modifica provider';
+  document.getElementById('provForm').dataset.editId = id;
   openOverlay('provOverlay');
 }
 
 document.getElementById('provForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const target = document.getElementById('pf_target').value;
+  const editId = e.target.dataset.editId;
   let extra = {};
   const raw = document.getElementById('pf_extra').value.trim();
-  if (raw) {
-    try { extra = JSON.parse(raw); } catch { toast('JSON parametri extra non valido', 'err'); return; }
-  }
+  if (raw) { try { extra = JSON.parse(raw); } catch { toast('JSON parametri extra non valido', 'err'); return; } }
   const payload = {
     name: document.getElementById('pf_name').value.trim(),
     kind: document.getElementById('pf_kind').value,
@@ -144,17 +185,18 @@ document.getElementById('provForm').addEventListener('submit', async (e) => {
       secret_name: document.getElementById('pf_secret').value.trim() || undefined,
       extra_params: Object.keys(extra).length ? extra : undefined,
     },
-    active: false,
   };
   try {
-    await sbInsert('thumb_image_providers', payload);
+    if (editId) await sbUpdate(SECTIONS[target].table, `id=eq.${editId}`, payload);
+    else await sbInsert(SECTIONS[target].table, { ...payload, active: false });
     closeOverlay('provOverlay');
-    loadProviders();
-    toast('Provider aggiunto', 'ok');
+    loadSection(target);
+    toast('Provider salvato', 'ok');
   } catch(err){ toast('Errore: ' + err.message, 'err'); }
 });
 
-loadProviders();
+loadSection('image');
+loadSection('text');
 </script>
 </body>
 </html>
