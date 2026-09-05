@@ -2,19 +2,20 @@
 
 // Progetto Supabase DEDICATO a questo tool — separato dal workspace GDC
 // principale (nessuna tabella, utente o dato in comune).
-const SUPA_URL = 'https://qjzpoljhahmfvsbhyxtq.supabase.co';
-const SUPA_KEY = 'sb_publishable_PPfm8hUNj8glxwqWjdV0uA_S3Db8U4d';
+const SUPA_URL = 'https://mjcnvpwjvwrucwjptgiu.supabase.co';
+const SUPA_KEY = 'sb_publishable_yrBSyHO-zale430dzkr1qA_dhssgD5g';
 const BUCKET = 'thumb-assets';
 const GITHUB_REPO = 'giandcdalcorso11-coder/GDC-thumbnail-generator';
 
 // Nomi reali delle Edge Function sul progetto Supabase — centralizzati qui
 // perché il nome dato in dashboard al momento del deploy può differire da
-// quello "canonico" del codice sorgente (es. underscore vs trattino).
-// Se rinomini una function, aggiorna solo qui.
+// quello "canonico" del codice sorgente (qui: nomi placeholder generati da
+// Supabase, col codice giusto incollato dentro). Se rinomini una function,
+// aggiorna solo qui.
 const EDGE_FN = {
-  analyzeScript: 'analyze_script',
-  generateThumbnail: 'generate_thumbnail',
-  fetchChannelVideos: 'fetch_channel_videos',
+  analyzeScript: 'quick-service',
+  generateThumbnail: 'smart-api',
+  fetchChannelVideos: 'swift-service',
 };
 
 // Link diretti per gestire secret/chiavi API senza dover cercare — usati in providers.html
