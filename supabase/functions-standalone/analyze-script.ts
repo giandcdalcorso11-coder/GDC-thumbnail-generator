@@ -7,8 +7,7 @@
 // esattamente come generate-thumbnail per le immagini: il frontend passa
 // `provider_kind` + `provider_config` letti dalla riga attiva di
 // thumb_text_providers, quindi cambiare motore è un click in providers.html,
-// non una modifica di codice. Le chiavi restano solo come secret della
-// Edge Function, mai nel browser.
+// non una modifica di codice.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders: Record<string, string> = {
@@ -72,10 +71,17 @@ function extractJson(raw: string): unknown {
   return JSON.parse(cleaned);
 }
 
+// La chiave può arrivare incollata dall'utente in Motori AI (provider_config.api_key,
+// più comoda) oppure da un secret della Edge Function (più sicura, per quando il
+// tool avrà più utenti) — qui proviamo prima la prima, poi la seconda.
+function resolveApiKey(config: Record<string, unknown> | undefined, secretName: string): string | undefined {
+  return (config?.api_key as string) || Deno.env.get(secretName);
+}
+
 async function runAnthropic(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?: unknown; error?: string }> {
   const secretName = (req.provider_config?.secret_name as string) || "ANTHROPIC_API_KEY";
-  const apiKey = Deno.env.get(secretName);
-  if (!apiKey) return { ok: false, error: `Secret '${secretName}' non configurato (Anthropic). Crea una chiave su console.anthropic.com/settings/keys e impostala nei secrets.` };
+  const apiKey = resolveApiKey(req.provider_config, secretName);
+  if (!apiKey) return { ok: false, error: `Chiave Anthropic non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea una chiave su console.anthropic.com/settings/keys.` };
   const model = (req.provider_config?.model as string) || "claude-haiku-4-5-20251001";
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -95,8 +101,8 @@ async function runAnthropic(req: AnalyzeRequest): Promise<{ ok: boolean; analysi
 
 async function runOpenAI(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?: unknown; error?: string }> {
   const secretName = (req.provider_config?.secret_name as string) || "OPENAI_API_KEY";
-  const apiKey = Deno.env.get(secretName);
-  if (!apiKey) return { ok: false, error: `Secret '${secretName}' non configurato (OpenAI). Crea una chiave su platform.openai.com/api-keys e impostala nei secrets.` };
+  const apiKey = resolveApiKey(req.provider_config, secretName);
+  if (!apiKey) return { ok: false, error: `Chiave OpenAI non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea una chiave su platform.openai.com/api-keys.` };
   const model = (req.provider_config?.model as string) || "gpt-4o-mini";
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -124,13 +130,15 @@ async function runOpenAI(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?:
 // providers.html in qualsiasi momento.
 async function runHuggingFace(req: AnalyzeRequest): Promise<{ ok: boolean; analysis?: unknown; error?: string }> {
   const secretName = (req.provider_config?.secret_name as string) || "HF_TOKEN";
-  const token = Deno.env.get(secretName);
-  if (!token) return { ok: false, error: `Secret '${secretName}' non configurato (Hugging Face). Crea un token gratuito su huggingface.co/settings/tokens e impostalo nei secrets.` };
+  const token = resolveApiKey(req.provider_config, secretName);
+  if (!token) return { ok: false, error: `Chiave Hugging Face non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea un token gratuito su huggingface.co/settings/tokens.` };
   const model = (req.provider_config?.model as string) || "mistralai/Mistral-7B-Instruct-v0.2";
 
   const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\n${buildUserMessage(req.content, req.client_context)} [/INST]`;
 
-  const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+  // api-inference.huggingface.co è stato dismesso: il nuovo gateway unificato
+  // di Hugging Face è router.huggingface.co (stesso backend "hf-inference").
+  const res = await fetch(`https://router.huggingface.co/hf-inference/models/${model}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -98,8 +98,14 @@
         <input class="inp" id="pf_model" placeholder="Es. black-forest-labs/FLUX.1-schnell">
       </div>
       <div class="field">
-        <label class="lbl">Nome secret (Edge Function)</label>
+        <label class="lbl">Chiave API</label>
+        <input class="inp" type="password" id="pf_api_key" placeholder="Incolla qui la chiave — salvata nel database del progetto" autocomplete="off">
+        <div class="hint">Alternativa più comoda al secret su Supabase (vedi sotto). Attenzione: con il login unico attuale, chiunque acceda al tool può leggerla dal database — va bene ora che sei l'unico utente, da rivedere prima di aprire il tool ad altri.</div>
+      </div>
+      <div class="field">
+        <label class="lbl">Nome secret (Edge Function) — alternativa più sicura</label>
         <input class="inp" id="pf_secret" placeholder="Es. HF_TOKEN">
+        <div class="hint">Se lasci vuota la chiave API sopra, la function userà questo secret impostato su Supabase.</div>
       </div>
       <div class="field">
         <label class="lbl">Parametri extra (JSON, opzionale)</label>
@@ -148,8 +154,9 @@ function renderSection(key){
             <span class="tag ${s.tagClass[p.kind]}">${s.kinds[p.kind] || p.kind}</span>
             ${p.config?.model ? `<span class="tag tag-grigio">${escapeHtml(p.config.model)}</span>` : ''}
             ${p.active ? '<span class="tag tag-maker">✓ Attivo</span>' : ''}
+            ${p.kind !== 'manual' ? (p.config?.api_key ? '<span class="tag tag-maker">🔑 Chiave impostata</span>' : '<span class="tag tag-life">⚠️ Chiave mancante</span>') : ''}
           </div>
-          ${p.config?.secret_name ? `<div class="text-xs text-grigio mt-8">Richiede secret <code>${escapeHtml(p.config.secret_name)}</code>${keyLink ? ` — <a href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ↗</a>` : ''}</div>` : ''}
+          ${p.config?.secret_name && !p.config?.api_key ? `<div class="text-xs text-grigio mt-8">Oppure secret <code>${escapeHtml(p.config.secret_name)}</code>${keyLink ? ` — <a href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ↗</a>` : ''}</div>` : ''}
         </div>
         <div class="flex gap-6" style="flex-direction:column;">
           ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateProvider('${key}','${p.id}')">Attiva</button>` : ''}
@@ -199,6 +206,7 @@ function editProvider(key, id){
   document.getElementById('pf_name').value = p.name;
   document.getElementById('pf_kind').value = p.kind;
   document.getElementById('pf_model').value = p.config?.model || '';
+  document.getElementById('pf_api_key').value = p.config?.api_key || '';
   document.getElementById('pf_secret').value = p.config?.secret_name || '';
   document.getElementById('pf_extra').value = p.config?.extra_params ? JSON.stringify(p.config.extra_params) : '';
   document.getElementById('provSheetTitle').textContent = 'Modifica provider';
@@ -218,6 +226,7 @@ document.getElementById('provForm').addEventListener('submit', async (e) => {
     kind: document.getElementById('pf_kind').value,
     config: {
       model: document.getElementById('pf_model').value.trim() || undefined,
+      api_key: document.getElementById('pf_api_key').value.trim() || undefined,
       secret_name: document.getElementById('pf_secret').value.trim() || undefined,
       extra_params: Object.keys(extra).length ? extra : undefined,
     },

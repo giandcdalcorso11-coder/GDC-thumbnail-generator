@@ -28,15 +28,28 @@ interface ProviderResult {
   poll_ref?: string;
 }
 
+// La chiave può arrivare in due modi, in ordine di priorità:
+// 1. incollata dall'utente nella pagina "Motori AI" (salvata in
+//    thumb_image_providers.config.api_key, arriva qui dentro provider_config) —
+//    più comodo, ma visibile a chiunque acceda al progetto Supabase finché il
+//    tool resta a singolo utente/non isolato.
+// 2. un secret della Edge Function (Deno.env), impostato via Dashboard —
+//    resta l'opzione più sicura per quando il tool avrà più utenti.
+function resolveApiKey(config: Record<string, unknown> | undefined, secretName: string): string | undefined {
+  return (config?.api_key as string) || Deno.env.get(secretName);
+}
+
 async function runHuggingFace(req: GenerateRequest): Promise<ProviderResult> {
   const secretName = (req.provider_config?.secret_name as string) || "HF_TOKEN";
-  const token = Deno.env.get(secretName);
+  const token = resolveApiKey(req.provider_config, secretName);
   if (!token) {
-    return { ok: false, error: `Secret '${secretName}' non configurato (Hugging Face). Aggiungilo nei secrets della Edge Function — è gratuito su huggingface.co/settings/tokens.` };
+    return { ok: false, error: `Chiave Hugging Face non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — è gratuita su huggingface.co/settings/tokens.` };
   }
   const model = (req.provider_config?.model as string) || "black-forest-labs/FLUX.1-schnell";
 
-  const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+  // api-inference.huggingface.co è stato dismesso: il nuovo gateway unificato
+  // di Hugging Face è router.huggingface.co (stesso backend "hf-inference").
+  const res = await fetch(`https://router.huggingface.co/hf-inference/models/${model}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -76,9 +89,9 @@ async function urlToBase64(url: string): Promise<string> {
 
 async function runFal(req: GenerateRequest): Promise<ProviderResult> {
   const secretName = (req.provider_config?.secret_name as string) || "FAL_KEY";
-  const key = Deno.env.get(secretName);
+  const key = resolveApiKey(req.provider_config, secretName);
   if (!key) {
-    return { ok: false, error: `Secret '${secretName}' non configurato (fal.ai). Registrati su fal.ai (include crediti gratuiti di benvenuto) e imposta la key nei secrets.` };
+    return { ok: false, error: `Chiave fal.ai non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — su fal.ai trovi crediti gratuiti di benvenuto.` };
   }
   const model = (req.provider_config?.model as string) || "fal-ai/instant-id";
 
@@ -106,9 +119,9 @@ async function runFal(req: GenerateRequest): Promise<ProviderResult> {
 
 async function runReplicate(req: GenerateRequest): Promise<ProviderResult> {
   const secretName = (req.provider_config?.secret_name as string) || "REPLICATE_API_TOKEN";
-  const token = Deno.env.get(secretName);
+  const token = resolveApiKey(req.provider_config, secretName);
   if (!token) {
-    return { ok: false, error: `Secret '${secretName}' non configurato (Replicate). Crea un token su replicate.com/account/api-tokens e impostalo nei secrets.` };
+    return { ok: false, error: `Chiave Replicate non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea un token su replicate.com/account/api-tokens.` };
   }
   const version = req.provider_config?.version as string | undefined;
   const model = req.provider_config?.model as string | undefined;
