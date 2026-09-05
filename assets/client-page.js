@@ -155,7 +155,7 @@ async function deleteVideo(id){
 async function importFromChannel(){
   if (!CLIENT.channel_url) { toast('Imposta prima l\'URL del canale nella scheda cliente', 'err'); return; }
   toast('Recupero video dal canale…');
-  const { ok, data } = await callEdgeFunction('fetch-channel-videos', { channel_url: CLIENT.channel_url });
+  const { ok, data } = await callEdgeFunction(EDGE_FN.fetchChannelVideos, { channel_url: CLIENT.channel_url });
   if (!ok) { toast('Errore: ' + (data.error || 'sconosciuto'), 'err'); return; }
   const existingIds = new Set(VIDEOS.map(v => v.youtube_video_id));
   const newOnes = data.videos.filter(v => !existingIds.has(v.youtube_video_id));
@@ -352,7 +352,7 @@ async function analyzeScript(){
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true; btn.textContent = 'Analisi in corso…';
   try {
-    const { ok, data } = await callEdgeFunction('analyze-script', {
+    const { ok, data } = await callEdgeFunction(EDGE_FN.analyzeScript, {
       content,
       provider_kind: ACTIVE_TEXT_PROVIDER.kind,
       provider_config: ACTIVE_TEXT_PROVIDER.config,
@@ -448,7 +448,7 @@ async function runGenerate(){
 
     const refUrls = await Promise.all([...SELECTED_REF_IDS].map(id => resolveImageUrl(GALLERY.find(g=>g.id===id).storage_path)));
 
-    const { ok, data } = await callEdgeFunction('generate-thumbnail', {
+    const { ok, data } = await callEdgeFunction(EDGE_FN.generateThumbnail, {
       provider_kind: ACTIVE_PROVIDER.kind,
       provider_config: ACTIVE_PROVIDER.config,
       prompt,

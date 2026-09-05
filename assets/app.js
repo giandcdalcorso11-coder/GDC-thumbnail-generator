@@ -7,6 +7,16 @@ const SUPA_KEY = 'sb_publishable_PPfm8hUNj8glxwqWjdV0uA_S3Db8U4d';
 const BUCKET = 'thumb-assets';
 const GITHUB_REPO = 'giandcdalcorso11-coder/GDC-thumbnail-generator';
 
+// Nomi reali delle Edge Function sul progetto Supabase — centralizzati qui
+// perché il nome dato in dashboard al momento del deploy può differire da
+// quello "canonico" del codice sorgente (es. underscore vs trattino).
+// Se rinomini una function, aggiorna solo qui.
+const EDGE_FN = {
+  analyzeScript: 'analyze_script',
+  generateThumbnail: 'generate_thumbnail',
+  fetchChannelVideos: 'fetch_channel_videos',
+};
+
 // Link diretti per gestire secret/chiavi API senza dover cercare — usati in providers.html
 function supabaseSecretsUrl(){
   const ref = SUPA_URL.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
