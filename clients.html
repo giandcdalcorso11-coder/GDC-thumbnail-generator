@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDC Thumbnail Studio — Clienti</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand"><span class="brand-dot"></span> GDC Thumbnail Studio</div>
+  </div>
+  <div class="topbar-right">
+    <a class="btn btn-gh btn-sm" href="providers.html">⚙️ Motore immagini</a>
+    <span class="text-xs text-grigio" id="whoami"></span>
+    <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="ttl" style="margin-bottom:2px;">Clienti</div>
+      <div class="text-sm text-grigio">Un cliente = un canale YouTube: galleria volto, script, generazione, proposte.</div>
+    </div>
+  </div>
+
+  <div class="grid grid-3 mb-8" id="statsRow">
+    <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statClients">—</b><span>Clienti attivi</span></div></div>
+    <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statVideos">—</b><span>Video in lavorazione</span></div></div>
+    <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statProposals">—</b><span>Proposte approvate</span></div></div>
+  </div>
+
+  <div class="field" style="max-width:340px;">
+    <input class="inp" id="searchInput" placeholder="Cerca cliente…" oninput="renderClients()">
+  </div>
+
+  <div id="clientList" class="grid" style="grid-template-columns:1fr; gap:10px;"></div>
+</div>
+
+<button class="fab" title="Nuovo cliente" onclick="openClientSheet()">＋</button>
+
+<!-- SHEET: crea/modifica cliente -->
+<div class="overlay" id="clientOverlay" onclick="if(event.target===this) closeOverlay('clientOverlay')">
+  <div class="sheet">
+    <div class="sheet-header">
+      <span class="sheet-title" id="clientSheetTitle">Nuovo cliente</span>
+      <button class="sheet-close" onclick="closeOverlay('clientOverlay')">✕</button>
+    </div>
+    <form id="clientForm">
+      <input type="hidden" id="cf_id">
+      <div class="field">
+        <label class="lbl">Nome canale / cliente *</label>
+        <input class="inp" id="cf_name" required placeholder="Es. Mario Rossi Vlog">
+      </div>
+      <div class="field">
+        <label class="lbl">URL canale YouTube</label>
+        <input class="inp" id="cf_channel_url" placeholder="https://www.youtube.com/@nomecanale">
+      </div>
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="lbl">Nicchia</label>
+          <input class="inp" id="cf_niche" placeholder="Es. tech review, gaming, vlog">
+        </div>
+        <div class="field">
+          <label class="lbl">Tono abituale</label>
+          <input class="inp" id="cf_tone" placeholder="Es. ironico, energico">
+        </div>
+      </div>
+      <div class="field">
+        <label class="lbl">Acquisizione screenshot volto</label>
+        <select class="select" id="cf_capture_mode">
+          <option value="manual">Solo caricamento manuale</option>
+          <option value="auto">Solo estrazione automatica (yt-dlp)</option>
+          <option value="both">Entrambe</option>
+        </select>
+        <div class="hint">Puoi cambiarla in qualsiasi momento dalla scheda del cliente.</div>
+      </div>
+      <div class="field">
+        <label class="lbl">Colori brand (hex separati da virgola)</label>
+        <input class="inp" id="cf_brand_colors" placeholder="#C4A865, #1C1C1C">
+      </div>
+      <div class="field">
+        <label class="lbl">Note</label>
+        <textarea class="textarea" id="cf_notes" style="min-height:70px;"></textarea>
+      </div>
+      <div class="flex gap-8 mt-12">
+        <button type="button" class="btn btn-s" style="display:none;" id="cf_archiveBtn" onclick="archiveClient()">Archivia</button>
+        <button type="submit" class="btn btn-p btn-block">Salva cliente</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+if (!requireAuth()) { /* redirect già eseguito */ }
+document.getElementById('whoami').textContent = getUserEmail() || '';
+
+let CLIENTS = [];
+
+async function loadStats(){
+  try {
+    const [clientsRes, videosRes, proposalsRes] = await Promise.all([
+      sbFetch('thumb_clients?select=id&status=eq.active', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
+      sbFetch('thumb_videos?select=id&status=in.(script,generating,review)', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
+      sbFetch('thumb_proposals?select=id&status=eq.approved', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
+    ]);
+    document.getElementById('statClients').textContent = countFromRange(clientsRes);
+    document.getElementById('statVideos').textContent = countFromRange(videosRes);
+    document.getElementById('statProposals').textContent = countFromRange(proposalsRes);
+  } catch(e){ console.error(e); }
+}
+function countFromRange(res){
+  const cr = res.headers.get('content-range') || '';
+  return cr.split('/')[1] || '0';
+}
+
+async function loadClients(){
+  document.getElementById('clientList').innerHTML = '<div class="loader">Caricamento clienti…</div>';
+  try {
+    CLIENTS = await sbSelect('thumb_clients',
+      'select=*,videos:thumb_videos(count),gallery:thumb_gallery_images(count),proposals:thumb_proposals(count)&order=created_at.desc');
+    renderClients();
+  } catch(e){
+    document.getElementById('clientList').innerHTML = `<div class="error-banner">Errore caricamento: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function captureModeLabel(m){
+  return { manual:'Manuale', auto:'Automatica', both:'Manuale + Auto' }[m] || m;
+}
+function captureModeTagClass(m){
+  return { manual:'tag-grigio', auto:'tag-athlete', both:'tag-maker' }[m] || 'tag-grigio';
+}
+
+function renderClients(){
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const list = CLIENTS.filter(c => !q || c.name.toLowerCase().includes(q) || (c.niche||'').toLowerCase().includes(q));
+  const el = document.getElementById('clientList');
+  if (!list.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>Nessun cliente ancora. Aggiungine uno con il pulsante ＋</div>';
+    return;
+  }
+  el.innerHTML = list.map(c => `
+    <a class="client-card" href="client.html?id=${c.id}">
+      <div class="client-avatar">${escapeHtml((c.name||'?').slice(0,2).toUpperCase())}</div>
+      <div class="client-info">
+        <div class="client-name">${escapeHtml(c.name)}${c.status==='archived' ? ' <span class=\"tag tag-grigio\">Archiviato</span>' : ''}</div>
+        <div class="client-meta">
+          ${c.niche ? `<span class="tag tag-sabbia">${escapeHtml(c.niche)}</span>` : ''}
+          <span class="tag ${captureModeTagClass(c.capture_mode)}">${captureModeLabel(c.capture_mode)}</span>
+        </div>
+      </div>
+      <div class="client-stats">
+        <div class="mini-stat"><b>${c.videos?.[0]?.count ?? 0}</b><span>Video</span></div>
+        <div class="mini-stat"><b>${c.gallery?.[0]?.count ?? 0}</b><span>Galleria</span></div>
+        <div class="mini-stat"><b>${c.proposals?.[0]?.count ?? 0}</b><span>Proposte</span></div>
+      </div>
+      <span class="arrow">›</span>
+    </a>
+  `).join('');
+}
+
+function openClientSheet(client){
+  document.getElementById('clientForm').reset();
+  document.getElementById('cf_id').value = client?.id || '';
+  document.getElementById('cf_name').value = client?.name || '';
+  document.getElementById('cf_channel_url').value = client?.channel_url || '';
+  document.getElementById('cf_niche').value = client?.niche || '';
+  document.getElementById('cf_tone').value = client?.tone || '';
+  document.getElementById('cf_capture_mode').value = client?.capture_mode || 'manual';
+  document.getElementById('cf_brand_colors').value = (client?.brand_colors || []).join(', ');
+  document.getElementById('cf_notes').value = client?.notes || '';
+  document.getElementById('clientSheetTitle').textContent = client ? 'Modifica cliente' : 'Nuovo cliente';
+  document.getElementById('cf_archiveBtn').style.display = client ? 'inline-flex' : 'none';
+  openOverlay('clientOverlay');
+}
+
+document.getElementById('clientForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('cf_id').value;
+  const payload = {
+    name: document.getElementById('cf_name').value.trim(),
+    channel_url: document.getElementById('cf_channel_url').value.trim() || null,
+    niche: document.getElementById('cf_niche').value.trim() || null,
+    tone: document.getElementById('cf_tone').value.trim() || null,
+    capture_mode: document.getElementById('cf_capture_mode').value,
+    brand_colors: document.getElementById('cf_brand_colors').value.split(',').map(s=>s.trim()).filter(Boolean),
+    notes: document.getElementById('cf_notes').value.trim() || null,
+  };
+  try {
+    if (id) {
+      payload.updated_at = new Date().toISOString();
+      await sbUpdate('thumb_clients', `id=eq.${id}`, payload);
+      toast('Cliente aggiornato', 'ok');
+    } else {
+      await sbInsert('thumb_clients', payload);
+      toast('Cliente creato', 'ok');
+    }
+    closeOverlay('clientOverlay');
+    loadClients(); loadStats();
+  } catch(err){ toast('Errore: ' + err.message, 'err'); }
+});
+
+async function archiveClient(){
+  const id = document.getElementById('cf_id').value;
+  if (!id || !confirm('Archiviare questo cliente?')) return;
+  try {
+    await sbUpdate('thumb_clients', `id=eq.${id}`, { status: 'archived' });
+    closeOverlay('clientOverlay');
+    loadClients(); loadStats();
+  } catch(err){ toast('Errore: ' + err.message, 'err'); }
+}
+
+loadClients();
+loadStats();
+</script>
+</body>
+</html>

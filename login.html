@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDC Thumbnail Studio — Accedi</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  body{ display:flex; align-items:center; justify-content:center; }
+  .login-card{ width:100%; max-width:380px; }
+  .login-logo{ text-align:center; margin-bottom:22px; }
+  .login-logo .brand-dot{ display:inline-block; }
+  .login-title{ font-size:20px; font-weight:800; margin-top:8px; }
+  .login-sub{ font-size:12px; color:var(--grigio); margin-top:4px; }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-logo">
+    <span class="brand-dot" style="width:14px;height:14px;"></span>
+    <div class="login-title">GDC Thumbnail Studio</div>
+    <div class="login-sub">Accedi con lo stesso account del workspace GDC</div>
+  </div>
+
+  <div class="card">
+    <div id="loginError" class="error-banner hidden mb-8"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label class="lbl" for="email">Email</label>
+        <input class="inp" type="email" id="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label class="lbl" for="password">Password</label>
+        <input class="inp" type="password" id="password" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-p btn-block" type="submit" id="loginBtn">Accedi</button>
+    </form>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+if (getToken()) window.location.href = 'clients.html';
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Accesso in corso…';
+
+  try {
+    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || 'Credenziali non valide');
+    setSession(data);
+    window.location.href = 'clients.html';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = 'Accedi';
+  }
+});
+</script>
+</body>
+</html>

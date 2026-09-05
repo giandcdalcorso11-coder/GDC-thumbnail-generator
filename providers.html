@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDC Thumbnail Studio — Motore immagini</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="btn btn-gh btn-sm" href="clients.html">← Clienti</a>
+    <div class="brand"><span class="brand-dot"></span> Motore immagini</div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
+  </div>
+</div>
+
+<div class="container-sm">
+  <div class="ttl">Provider di generazione immagini</div>
+  <p class="text-sm text-grigio mb-8">
+    Solo un provider è "attivo" alla volta: è quello che verrà usato dalla scheda
+    <b>Genera proposte</b> di ogni cliente. Cambiare motore = un click qui sotto,
+    nessuna modifica al codice. Ogni provider ha bisogno di una chiave API salvata
+    come <b>secret</b> della Edge Function <code>generate-thumbnail</code> su Supabase
+    (Dashboard → Edge Functions → Secrets) — non viene mai scritta o esposta nel browser.
+  </p>
+
+  <div id="providerList"></div>
+
+  <button class="btn btn-s btn-block mt-12" onclick="openNewProvider()">＋ Aggiungi provider personalizzato</button>
+</div>
+
+<div class="overlay" id="provOverlay" onclick="if(event.target===this) closeOverlay('provOverlay')">
+  <div class="sheet">
+    <div class="sheet-header">
+      <span class="sheet-title">Nuovo provider</span>
+      <button class="sheet-close" onclick="closeOverlay('provOverlay')">✕</button>
+    </div>
+    <form id="provForm">
+      <div class="field">
+        <label class="lbl">Nome visualizzato</label>
+        <input class="inp" id="pf_name" required placeholder="Es. Replicate — SDXL personalizzato">
+      </div>
+      <div class="field">
+        <label class="lbl">Tipo</label>
+        <select class="select" id="pf_kind">
+          <option value="huggingface">Hugging Face Inference API</option>
+          <option value="fal">fal.ai</option>
+          <option value="replicate">Replicate</option>
+          <option value="manual">Manuale (carica immagine a mano)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl">Modello (id sul provider)</label>
+        <input class="inp" id="pf_model" placeholder="Es. black-forest-labs/FLUX.1-schnell">
+      </div>
+      <div class="field">
+        <label class="lbl">Nome secret (Edge Function)</label>
+        <input class="inp" id="pf_secret" placeholder="Es. HF_TOKEN">
+      </div>
+      <div class="field">
+        <label class="lbl">Parametri extra (JSON, opzionale)</label>
+        <textarea class="textarea" id="pf_extra" placeholder='{"num_inference_steps": 6}'></textarea>
+      </div>
+      <button type="submit" class="btn btn-p btn-block">Salva provider</button>
+    </form>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+if (!requireAuth()) {}
+
+const KIND_LABEL = { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', manual:'Manuale' };
+const KIND_TAG = { huggingface:'tag-athlete', fal:'tag-maker', replicate:'tag-sabbia', manual:'tag-grigio' };
+let PROVIDERS = [];
+
+async function loadProviders(){
+  document.getElementById('providerList').innerHTML = '<div class="loader">Caricamento…</div>';
+  PROVIDERS = await sbSelect('thumb_image_providers', 'select=*&order=created_at.asc');
+  renderProviders();
+}
+
+function renderProviders(){
+  document.getElementById('providerList').innerHTML = PROVIDERS.map(p => `
+    <div class="card ${p.active ? '' : ''}" style="${p.active ? 'border-color:var(--maker);' : ''}">
+      <div class="flex items-center justify-between">
+        <div>
+          <div style="font-weight:800;font-size:14px;">${escapeHtml(p.name)}</div>
+          <div class="flex gap-6 mt-8" style="flex-wrap:wrap;">
+            <span class="tag ${KIND_TAG[p.kind]}">${KIND_LABEL[p.kind]}</span>
+            ${p.config?.model ? `<span class="tag tag-grigio">${escapeHtml(p.config.model)}</span>` : ''}
+            ${p.active ? '<span class="tag tag-maker">✓ Attivo</span>' : ''}
+          </div>
+          ${p.config?.secret_name ? `<div class="text-xs text-grigio mt-8">Richiede secret: <code>${escapeHtml(p.config.secret_name)}</code></div>` : ''}
+        </div>
+        <div class="flex gap-6" style="flex-direction:column;">
+          ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateProvider('${p.id}')">Attiva</button>` : ''}
+          <button class="btn btn-gh btn-sm" onclick="deleteProvider('${p.id}')">Elimina</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function activateProvider(id){
+  try {
+    // un solo provider attivo alla volta: disattiva tutti, poi attiva il selezionato
+    await sbUpdate('thumb_image_providers', 'active=eq.true', { active: false });
+    await sbUpdate('thumb_image_providers', `id=eq.${id}`, { active: true });
+    toast('Provider attivato', 'ok');
+    loadProviders();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+async function deleteProvider(id){
+  if (!confirm('Eliminare questo provider?')) return;
+  try {
+    await sbDelete('thumb_image_providers', `id=eq.${id}`);
+    loadProviders();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+function openNewProvider(){
+  document.getElementById('provForm').reset();
+  openOverlay('provOverlay');
+}
+
+document.getElementById('provForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  let extra = {};
+  const raw = document.getElementById('pf_extra').value.trim();
+  if (raw) {
+    try { extra = JSON.parse(raw); } catch { toast('JSON parametri extra non valido', 'err'); return; }
+  }
+  const payload = {
+    name: document.getElementById('pf_name').value.trim(),
+    kind: document.getElementById('pf_kind').value,
+    config: {
+      model: document.getElementById('pf_model').value.trim() || undefined,
+      secret_name: document.getElementById('pf_secret').value.trim() || undefined,
+      extra_params: Object.keys(extra).length ? extra : undefined,
+    },
+    active: false,
+  };
+  try {
+    await sbInsert('thumb_image_providers', payload);
+    closeOverlay('provOverlay');
+    loadProviders();
+    toast('Provider aggiunto', 'ok');
+  } catch(err){ toast('Errore: ' + err.message, 'err'); }
+});
+
+loadProviders();
+</script>
+</body>
+</html>
