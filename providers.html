@@ -32,6 +32,42 @@
     <a class="btn btn-s btn-sm" href="#" onclick="window.open(githubSecretsUrl(),'_blank');return false;">🔐 Apri i secret su GitHub (per la raccolta frame)</a>
   </div>
 
+  <div class="section-lbl">🏷️ Filigrana miniature</div>
+  <div class="card mb-12">
+    <p class="text-xs text-grigio mb-8">
+      Applicata automaticamente a ogni proposta finale finché non viene "sbloccata"
+      (in futuro: dopo un pagamento). Il file salvato dall'Editor resta sempre pulito —
+      la filigrana è aggiunta solo in anteprima/download.
+    </p>
+    <div class="flex items-center gap-10 mb-8">
+      <img id="wm_logo_preview" style="width:52px;height:52px;border-radius:10px;object-fit:contain;background:var(--carta);border:1.5px solid var(--border);">
+      <div style="flex:1;">
+        <label class="lbl">Logo filigrana (opzionale)</label>
+        <input type="file" id="wm_logo_input" accept="image/*">
+      </div>
+    </div>
+    <div class="field">
+      <label class="lbl">Testo di riserva (se non carichi un logo)</label>
+      <input class="inp" id="wm_text" placeholder="Es. GDC Thumbnail Studio">
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label class="lbl">Posizione</label>
+        <select class="select" id="wm_position">
+          <option value="bottom-right">In basso a destra</option>
+          <option value="bottom-left">In basso a sinistra</option>
+          <option value="top-right">In alto a destra</option>
+          <option value="top-left">In alto a sinistra</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl">Opacità</label>
+        <input class="inp" type="range" id="wm_opacity" min="0.2" max="1" step="0.05">
+      </div>
+    </div>
+    <button class="btn btn-p btn-block" onclick="saveWatermarkSettings()">Salva filigrana</button>
+  </div>
+
   <div class="section-lbl">✨ Generazione immagini</div>
   <div id="imageProviderList" class="mb-12"></div>
   <button class="btn btn-s btn-block mb-12" onclick="openNewProvider('image')">＋ Aggiungi provider immagine personalizzato</button>
@@ -195,8 +231,45 @@ document.getElementById('provForm').addEventListener('submit', async (e) => {
   } catch(err){ toast('Errore: ' + err.message, 'err'); }
 });
 
+// ── FILIGRANA ────────────────────────────────────────────────────────────
+let WM_SETTINGS = null;
+async function loadWatermarkSettings(){
+  const rows = await sbSelect('thumb_app_settings', 'select=*&limit=1');
+  WM_SETTINGS = rows[0] || null;
+  if (!WM_SETTINGS) return;
+  document.getElementById('wm_text').value = WM_SETTINGS.watermark_text || '';
+  document.getElementById('wm_position').value = WM_SETTINGS.watermark_position || 'bottom-right';
+  document.getElementById('wm_opacity').value = WM_SETTINGS.watermark_opacity ?? 0.85;
+  document.getElementById('wm_logo_preview').src = '';
+  if (WM_SETTINGS.watermark_logo_path) resolveImageUrl(WM_SETTINGS.watermark_logo_path).then(url => document.getElementById('wm_logo_preview').src = url);
+}
+
+async function saveWatermarkSettings(){
+  try {
+    let logo_path = WM_SETTINGS?.watermark_logo_path || null;
+    const file = document.getElementById('wm_logo_input').files[0];
+    if (file){
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      logo_path = `platform/watermark-logo.${ext}`;
+      await sbUpload(logo_path, file);
+    }
+    const payload = {
+      watermark_text: document.getElementById('wm_text').value.trim() || null,
+      watermark_position: document.getElementById('wm_position').value,
+      watermark_opacity: parseFloat(document.getElementById('wm_opacity').value),
+      watermark_logo_path: logo_path,
+      updated_at: new Date().toISOString(),
+    };
+    if (WM_SETTINGS) await sbUpdate('thumb_app_settings', `id=eq.${WM_SETTINGS.id}`, payload);
+    else await sbInsert('thumb_app_settings', { id: 'default', ...payload }, { returnRow: false });
+    toast('Filigrana salvata', 'ok');
+    loadWatermarkSettings();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
 loadSection('image');
 loadSection('text');
+loadWatermarkSettings();
 </script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 /* GDC Thumbnail Studio — config & helper condivisi (nessun build step, vanilla JS) */
 
-// Stesso progetto Supabase del workspace GDC principale: le tabelle di questo
-// tool sono tutte prefissate `thumb_` e non toccano nulla dell'altra app.
-const SUPA_URL = 'https://pnzabwfsgkvejnrtrjcp.supabase.co';
-const SUPA_KEY = 'sb_publishable_DCzX82HTZ1avt-NJxGAz4Q_6ZlxMudV';
+// Progetto Supabase DEDICATO a questo tool — separato dal workspace GDC
+// principale (nessuna tabella, utente o dato in comune).
+const SUPA_URL = 'https://qjzpoljhahmfvsbhyxtq.supabase.co';
+const SUPA_KEY = 'sb_publishable_PPfm8hUNj8glxwqWjdV0uA_S3Db8U4d';
 const BUCKET = 'thumb-assets';
 const GITHUB_REPO = 'giandcdalcorso11-coder/GDC-thumbnail-generator';
 
@@ -163,6 +163,84 @@ async function resolveImageUrl(pathOrUrl){
   const url = await sbSignedUrl(pathOrUrl);
   _signedUrlCache.set(pathOrUrl, url);
   return url;
+}
+
+// ── FILIGRANA (miniature finali) ────────────────────────────────────────
+// Impostazione di piattaforma (un'unica riga): logo o testo sovrapposto alle
+// miniature finali finché la proposta non è "sbloccata" (thumb_proposals.unlocked).
+// Applicata solo lato client, al momento della visualizzazione/download —
+// il file pulito resta quello salvato dall'Editor.
+let PLATFORM_SETTINGS = null;
+async function loadPlatformSettings(){
+  try {
+    const rows = await sbSelect('thumb_app_settings', 'select=*&limit=1');
+    PLATFORM_SETTINGS = rows[0] || null;
+  } catch(e) { PLATFORM_SETTINGS = null; }
+  return PLATFORM_SETTINGS;
+}
+
+function loadImageEl(url){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Immagine non caricabile: ' + url));
+    img.src = url;
+  });
+}
+
+function watermarkAnchor(pos, w, h, itemW, itemH){
+  const pad = Math.round(w * 0.025);
+  const map = {
+    'bottom-right': { x: w - itemW - pad, y: h - itemH - pad },
+    'bottom-left':  { x: pad, y: h - itemH - pad },
+    'top-right':    { x: w - itemW - pad, y: pad },
+    'top-left':     { x: pad, y: pad },
+  };
+  return map[pos] || map['bottom-right'];
+}
+
+async function drawWatermark(ctx, w, h){
+  const s = PLATFORM_SETTINGS;
+  ctx.save();
+  ctx.globalAlpha = s?.watermark_opacity ?? 0.85;
+  if (s?.watermark_logo_path){
+    try {
+      const logoUrl = await resolveImageUrl(s.watermark_logo_path);
+      const logo = await loadImageEl(logoUrl);
+      const lw = w * 0.18, lh = lw * (logo.naturalHeight / logo.naturalWidth);
+      const { x, y } = watermarkAnchor(s.watermark_position, w, h, lw, lh);
+      ctx.drawImage(logo, x, y, lw, lh);
+      ctx.restore();
+      return;
+    } catch(e) { /* fallback su testo qui sotto */ }
+  }
+  const text = s?.watermark_text || 'GDC Thumbnail Studio';
+  const fontSize = Math.round(h * 0.045);
+  ctx.font = `700 ${fontSize}px Jost, sans-serif`;
+  const metrics = ctx.measureText(text);
+  const { x, y } = watermarkAnchor(s?.watermark_position, w, h, metrics.width, fontSize);
+  ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.12));
+  ctx.strokeStyle = 'rgba(0,0,0,.65)';
+  ctx.fillStyle = '#ffffff';
+  ctx.textBaseline = 'top';
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+// Ritorna una data URL pronta per <img src> / download: con filigrana se
+// `unlocked` è false, l'immagine pulita altrimenti.
+async function watermarkedDataUrl(cleanUrl, unlocked){
+  if (unlocked) return cleanUrl;
+  const img = await loadImageEl(cleanUrl);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  if (!PLATFORM_SETTINGS) await loadPlatformSettings();
+  await drawWatermark(ctx, canvas.width, canvas.height);
+  return canvas.toDataURL('image/png');
 }
 
 // ── EDGE FUNCTIONS ────────────────────────────────────────────────────────

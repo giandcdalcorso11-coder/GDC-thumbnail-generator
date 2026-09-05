@@ -798,24 +798,34 @@ async function loadProposals(){
     </div>`;
   }).join('');
 
+  await loadPlatformSettings();
   for (const [videoId, list] of Object.entries(byVideo)){
     const grid = document.getElementById(`pv-${videoId}`);
     grid.innerHTML = list.map(p => `<div class="img-card" id="prop-${p.id}"><div class="loader">…</div></div>`).join('');
-    list.forEach(p => resolveImageUrl(p.storage_path).then(url => {
+    list.forEach(p => resolveImageUrl(p.storage_path).then(async cleanUrl => {
       const card = document.getElementById(`prop-${p.id}`);
       if (!card) return;
+      const displayUrl = await watermarkedDataUrl(cleanUrl, p.unlocked);
       const badgeClass = { draft:'tag-grigio', approved:'tag-maker', rejected:'tag-life', sent:'tag-athlete' }[p.status];
       const badgeLabel = { draft:'Bozza', approved:'Approvata', rejected:'Rifiutata', sent:'Inviata' }[p.status];
       card.innerHTML = `
-        <img src="${url}">
+        <img src="${displayUrl}">
         <span class="tag ${badgeClass} img-badge">${badgeLabel}</span>
+        ${!p.unlocked ? '<span class="tag tag-sabbia" style="position:absolute;top:6px;right:6px;">🔒 Filigrana</span>' : ''}
         <div class="img-actions">
           <button class="btn btn-g" onclick="setProposalStatus('${p.id}','approved')">✓</button>
           <button class="btn btn-o" onclick="setProposalStatus('${p.id}','rejected')">✕</button>
-          <a class="btn btn-s" href="${url}" download="proposta.png" target="_blank">⬇</a>
+          ${!p.unlocked ? `<button class="btn btn-s" onclick="unlockProposal('${p.id}')" title="Placeholder: sblocca senza pagamento reale, in attesa del sistema di pagamento">🔓</button>` : ''}
+          <a class="btn btn-s" href="${displayUrl}" download="proposta.png">⬇</a>
         </div>`;
     }));
   }
+}
+
+async function unlockProposal(id){
+  if (!confirm('Sblocco manuale (placeholder): rimuove la filigrana da questa proposta senza un pagamento reale, finché non colleghiamo un sistema di pagamento. Continuare?')) return;
+  try { await sbUpdate('thumb_proposals', `id=eq.${id}`, { unlocked: true }); loadProposals(); }
+  catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
 async function setProposalStatus(id, status){
