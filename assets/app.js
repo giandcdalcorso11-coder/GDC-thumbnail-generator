@@ -13,7 +13,7 @@ const GITHUB_REPO = 'giandcdalcorso11-coder/GDC-thumbnail-generator';
 // Supabase, col codice giusto incollato dentro). Se rinomini una function,
 // aggiorna solo qui.
 const EDGE_FN = {
-  analyzeScript: 'quick-service',
+  analyzeScript: 'Quick-service',
   generateThumbnail: 'smart-api',
   fetchChannelVideos: 'swift-service',
 };
