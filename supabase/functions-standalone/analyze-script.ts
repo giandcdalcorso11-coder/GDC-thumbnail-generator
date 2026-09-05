@@ -132,28 +132,29 @@ async function runHuggingFace(req: AnalyzeRequest): Promise<{ ok: boolean; analy
   const secretName = (req.provider_config?.secret_name as string) || "HF_TOKEN";
   const token = resolveApiKey(req.provider_config, secretName);
   if (!token) return { ok: false, error: `Chiave Hugging Face non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea un token gratuito su huggingface.co/settings/tokens.` };
-  const model = (req.provider_config?.model as string) || "mistralai/Mistral-7B-Instruct-v0.2";
+  const model = (req.provider_config?.model as string) || "Qwen/Qwen2.5-7B-Instruct";
 
-  const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\n${buildUserMessage(req.content, req.client_context)} [/INST]`;
-
-  // api-inference.huggingface.co è stato dismesso: il nuovo gateway unificato
-  // di Hugging Face è router.huggingface.co (stesso backend "hf-inference").
-  const res = await fetch(`https://router.huggingface.co/hf-inference/models/${model}`, {
+  // API "chat completions" compatibile OpenAI: instrada automaticamente al
+  // provider (tra quelli disponibili su Hugging Face) che ospita il modello
+  // scelto, invece di dipendere dal solo "hf-inference" e dal suo elenco
+  // ristretto di modelli supportati per la vecchia API text-generation.
+  const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      inputs: prompt,
-      parameters: { max_new_tokens: 700, return_full_text: false, temperature: 0.4 },
+      model,
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserMessage(req.content, req.client_context) },
+      ],
     }),
   });
-  if (res.status === 503) {
-    const info = await res.json().catch(() => ({}));
-    return { ok: false, error: `Modello in caricamento su Hugging Face, riprova tra ~${Math.ceil(info.estimated_time || 20)}s.` };
-  }
-  if (!res.ok) return { ok: false, error: `Hugging Face error ${res.status}: ${await res.text()}` };
+  if (res.status === 503) return { ok: false, error: "Modello in caricamento su Hugging Face, riprova tra qualche secondo." };
+  if (!res.ok) return { ok: false, error: `Hugging Face error ${res.status}: ${await res.text()} — se il messaggio dice "model not supported", cambia il campo Modello in Impostazioni → Motori AI con un altro modello disponibile su huggingface.co/models.` };
   const data = await res.json();
-  const text = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
-  try { return { ok: true, analysis: extractJson(text || "") }; }
+  const text = data.choices?.[0]?.message?.content || "";
+  try { return { ok: true, analysis: extractJson(text) }; }
   catch { return { ok: false, error: "Il modello gratuito non ha risposto in JSON valido — riprova, oppure cambia modello/provider in Impostazioni." }; }
 }
 
