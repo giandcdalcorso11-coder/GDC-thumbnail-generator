@@ -528,7 +528,7 @@ function renderModelPicker(kind){
   const cfg = MODEL_PICKERS[kind];
   const listEl = document.getElementById(MODEL_PICKER_IDS[kind] + 'List');
   const list = cfg.list();
-  const manageLink = '<a class="model-picker-manage" href="providers.html">⚙️ Gestisci / aggiungi provider</a>';
+  const manageLink = '<a class="model-picker-manage" href="#" onclick="event.preventDefault();goToSettingsProviders();">⚙️ Gestisci / aggiungi provider</a>';
   if (!list.length){
     listEl.innerHTML = '<div class="model-picker-empty">Nessun provider configurato.</div>' + manageLink;
     return;
@@ -562,6 +562,15 @@ async function selectModel(kind, id){
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.model-picker')) document.querySelectorAll('.model-picker.open').forEach(p => p.classList.remove('open'));
 });
+
+// Naviga alla tab Impostazioni → Motori AI senza uscire dalla pagina (chiude
+// eventuale overlay/tendina aperti sopra, così la tab si vede subito).
+function goToSettingsProviders(){
+  document.querySelectorAll('.model-picker.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+  document.querySelector('#mainTabBar [data-tab="view-settings"]')?.click();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 let SELECTED_REF_IDS = new Set();
 function renderGenRefGrid(){

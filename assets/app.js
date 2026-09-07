@@ -58,6 +58,15 @@ function requireAuth(){
   return true;
 }
 
+// Torna alla pagina precedente nella cronologia di questa sessione se ce n'è
+// una (es. arrivi qui da un link dentro il tool); altrimenti vai su una
+// destinazione di default sensata — utile quando la pagina è aperta diretta
+// (bookmark, icona home screen su iPad) e non c'è nulla da "tornare indietro".
+function goBack(fallbackUrl){
+  if (history.length > 1) history.back();
+  else window.location.href = fallbackUrl;
+}
+
 function sessionExpired(){
   clearSession();
   toast('Sessione scaduta, effettua di nuovo il login', 'err');

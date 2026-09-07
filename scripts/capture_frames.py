@@ -57,7 +57,9 @@ def sb_select(table, query):
 def sb_update(table, match, data):
     r = requests.patch(f"{SUPABASE_URL}/rest/v1/{table}?{match}", headers=HEADERS, json=data, timeout=30)
     r.raise_for_status()
-    return r.json()
+    # Senza l'header Prefer: return=representation, PostgREST risponde 204 con
+    # corpo vuoto — .json() su un body vuoto solleva JSONDecodeError.
+    return r.json() if r.content else None
 
 
 def sb_insert(table, data):
