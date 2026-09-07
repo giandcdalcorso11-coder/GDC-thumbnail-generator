@@ -160,8 +160,8 @@
             </div>
           </div>
           <div class="section-lbl">Script del video selezionato</div>
-          <textarea class="textarea" id="scriptContent" style="min-height:200px;" placeholder="Incolla qui lo script, la scaletta o la bozza del video…"></textarea>
-          <div class="text-xs text-grigio mt-8">Con Google Gemini attivo puoi anche lasciare vuoto: analizza direttamente il video dall'URL YouTube (impostato in "Canale &amp; Video") e scrive lui lo script.</div>
+          <div class="text-xs text-grigio mb-8">Il video magari non è ancora online: scrivi qui l'idea, la scaletta o la bozza — non serve un video pubblicato. Per lo stile generale del canale usa invece "Impara dallo stile del canale" nella tab Profilo.</div>
+          <textarea class="textarea" id="scriptContent" style="min-height:200px;" placeholder="Scrivi qui l'idea, la scaletta o la bozza del video…"></textarea>
           <div class="flex gap-8 mt-12">
             <button class="btn btn-p" id="analyzeBtn" onclick="analyzeScript()">🤖 Analizza con AI</button>
             <button class="btn btn-s" onclick="saveScript()">Salva script</button>
@@ -322,6 +322,27 @@
         <div class="field"><label class="lbl">Note</label><textarea class="textarea" id="prof_notes" style="min-height:70px;"></textarea></div>
         <button type="submit" class="btn btn-p btn-block">Salva profilo</button>
       </form>
+    </div>
+
+    <div class="card mt-12">
+      <div class="section-lbl">🧠 Impara dallo stile del canale</div>
+      <p class="text-xs text-grigio mb-8">
+        Opzionale, non serve per ogni miniatura: il video nuovo di solito non è ancora
+        su YouTube. Usalo ogni tanto per analizzare un video già pubblicato ed estrarre
+        tono, mood e palette tipici del canale, da salvare come nota di stile qui sotto.
+        Richiede il motore <b>Google Gemini</b> attivo (unico che può guardare un video).
+      </p>
+      <div class="field">
+        <label class="lbl">URL di un video già pubblicato</label>
+        <input class="inp" id="kitAnalysisUrl" placeholder="https://www.youtube.com/watch?v=…">
+      </div>
+      <button class="btn btn-s btn-sm" id="kitAnalysisBtn" onclick="runKitChannelAnalysis()">✨ Analizza con Gemini</button>
+      <div id="kitAnalysisError" class="error-banner mt-8 hidden"></div>
+      <div id="kitAnalysisResult" class="mt-12 hidden">
+        <div class="lbl">Risultato</div>
+        <div class="text-sm mb-8" id="kitAnalysisSummary" style="white-space:pre-line;"></div>
+        <button class="btn btn-p btn-sm" onclick="saveKitChannelAnalysisAsNote()">💾 Salva nel Kit come nota di stile</button>
+      </div>
     </div>
 
     <div class="card mt-12">

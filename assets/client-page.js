@@ -436,35 +436,20 @@ async function loadEditProviders(){
 async function analyzeScript(){
   if (!SELECTED_VIDEO_ID) { toast('Seleziona prima un video', 'err'); return; }
   if (!ACTIVE_TEXT_PROVIDER) { toast('Nessun motore di analisi attivo — vai in Impostazioni', 'err'); return; }
-  let content = document.getElementById('scriptContent').value.trim();
-  const video = VIDEOS.find(v => v.id === SELECTED_VIDEO_ID);
-  // Gemini è l'unico motore che può guardare il video direttamente da URL
-  // YouTube: se non hai incollato uno script, prova ad analizzare il video.
-  const useVideoUrl = ACTIVE_TEXT_PROVIDER.kind === 'gemini' && !content && video?.url;
-  if (!content && !useVideoUrl) {
-    toast(ACTIVE_TEXT_PROVIDER.kind === 'gemini' ? 'Incolla uno script oppure aggiungi l\'URL YouTube al video (Canale & Video)' : 'Incolla prima lo script', 'err');
-    return;
-  }
+  const content = document.getElementById('scriptContent').value.trim();
+  if (!content) { toast('Scrivi prima l\'idea o la scaletta del video', 'err'); return; }
   const errEl = document.getElementById('scriptError');
   errEl.classList.add('hidden');
   const btn = document.getElementById('analyzeBtn');
-  btn.disabled = true; btn.textContent = useVideoUrl ? 'Guardo il video…' : 'Analisi in corso…';
+  btn.disabled = true; btn.textContent = 'Analisi in corso…';
   try {
     const { ok, data } = await callEdgeFunction(EDGE_FN.analyzeScript, {
       content,
-      video_url: useVideoUrl ? video.url : undefined,
       provider_kind: ACTIVE_TEXT_PROVIDER.kind,
       provider_config: ACTIVE_TEXT_PROVIDER.config,
       client_context: { name: CLIENT.name, niche: CLIENT.niche, tone: CLIENT.tone },
     });
     if (!ok) throw new Error(data.error || 'Errore sconosciuto');
-    // Se l'analisi è partita dal video (nessuno script incollato), lo script
-    // "letto" da Gemini diventa il contenuto salvato — chiude il workflow
-    // video → script → prompt → generazione senza doverlo scrivere a mano.
-    if (!content && data.analysis?.video_summary){
-      content = data.analysis.video_summary;
-      document.getElementById('scriptContent').value = content;
-    }
     renderAnalysis(data.analysis);
     // salva subito script + analisi
     if (CURRENT_SCRIPT_ROW){
@@ -1053,6 +1038,70 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch(err){ toast('Errore: ' + err.message, 'err'); }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// TAB: PROFILO — "impara dallo stile del canale" (opzionale, una tantum):
+// analizza un video GIÀ pubblicato con Gemini per estrarre tono/mood/palette
+// tipici del canale, salvabili come nota di stile nel Kit. Diverso dallo
+// step Script (che riguarda il video nuovo, non ancora online).
+// ─────────────────────────────────────────────────────────────────────────
+let KIT_CHANNEL_ANALYSIS = null;
+
+function formatChannelAnalysis(a){
+  return [
+    a.video_summary ? `Di cosa parla: ${a.video_summary}` : null,
+    a.topic ? `Argomento: ${a.topic}` : null,
+    a.tone ? `Tono: ${a.tone}` : null,
+    a.visual_mood ? `Mood visivo: ${a.visual_mood}` : null,
+    (a.keywords||[]).length ? `Parole chiave: ${a.keywords.join(', ')}` : null,
+    (a.color_palette||[]).length ? `Palette: ${a.color_palette.join(', ')}` : null,
+  ].filter(Boolean).join('\n');
+}
+
+async function runKitChannelAnalysis(){
+  const url = document.getElementById('kitAnalysisUrl').value.trim();
+  if (!url) { toast('Incolla l\'URL di un video già pubblicato', 'err'); return; }
+  const geminiProvider = TEXT_PROVIDERS.find(p => p.kind === 'gemini');
+  if (!geminiProvider) { toast('Aggiungi un motore Google Gemini in Impostazioni — è l\'unico che può guardare un video', 'err'); return; }
+  const errEl = document.getElementById('kitAnalysisError');
+  errEl.classList.add('hidden');
+  const btn = document.getElementById('kitAnalysisBtn');
+  btn.disabled = true; btn.textContent = 'Guardo il video…';
+  try {
+    const { ok, data } = await callEdgeFunction(EDGE_FN.analyzeScript, {
+      content: '',
+      video_url: url,
+      provider_kind: 'gemini',
+      provider_config: geminiProvider.config,
+      client_context: { name: CLIENT.name, niche: CLIENT.niche, tone: CLIENT.tone },
+    });
+    if (!ok) throw new Error(data.error || 'Errore sconosciuto');
+    KIT_CHANNEL_ANALYSIS = data.analysis;
+    document.getElementById('kitAnalysisResult').classList.remove('hidden');
+    document.getElementById('kitAnalysisSummary').textContent = formatChannelAnalysis(data.analysis);
+  } catch(e){
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Analizza con Gemini';
+  }
+}
+
+async function saveKitChannelAnalysisAsNote(){
+  if (!KIT_CHANNEL_ANALYSIS) return;
+  try {
+    await sbInsert('thumb_client_assets', {
+      client_id: CLIENT_ID, kind: 'note',
+      note_text: formatChannelAnalysis(KIT_CHANNEL_ANALYSIS),
+      title: 'Analisi canale — ' + new Date().toLocaleDateString('it-IT'),
+    }, { returnRow: false });
+    toast('Nota di stile salvata nel Kit', 'ok');
+    document.getElementById('kitAnalysisUrl').value = '';
+    document.getElementById('kitAnalysisResult').classList.add('hidden');
+    KIT_CHANNEL_ANALYSIS = null;
+    loadKit();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // TAB: PROFILO — kit permanente (foto/documenti/note riusabili sempre)
