@@ -133,8 +133,13 @@ def fetch_recent_videos(channel_id, limit):
 def download_video(url, out_dir):
     out_path = os.path.join(out_dir, "video.mp4")
     fmt = f"bestvideo[height<={MAX_VIDEO_HEIGHT}][ext=mp4]+bestaudio[ext=m4a]/best[height<={MAX_VIDEO_HEIGHT}][ext=mp4]/best"
+    # Dagli IP dei runner GitHub Actions, YouTube spesso risponde "Sign in to
+    # confirm you're not a bot" al client web di yt-dlp. Il client "android"
+    # non richiede quel controllo (nessuna garanzia che resti così nel tempo:
+    # è YouTube stesso a cambiare le contromisure lato server).
     subprocess.run(
-        ["yt-dlp", "-f", fmt, "-o", out_path, "--no-playlist", "--quiet", "--no-warnings", url],
+        ["yt-dlp", "-f", fmt, "-o", out_path, "--no-playlist", "--quiet", "--no-warnings",
+         "--extractor-args", "youtube:player_client=android", url],
         check=True, timeout=900,
     )
     return out_path
