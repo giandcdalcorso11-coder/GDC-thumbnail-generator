@@ -132,12 +132,13 @@ async function runHuggingFace(req: AnalyzeRequest): Promise<{ ok: boolean; analy
   const secretName = (req.provider_config?.secret_name as string) || "HF_TOKEN";
   const token = resolveApiKey(req.provider_config, secretName);
   if (!token) return { ok: false, error: `Chiave Hugging Face non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea un token gratuito su huggingface.co/settings/tokens.` };
-  const model = (req.provider_config?.model as string) || "Qwen/Qwen2.5-7B-Instruct";
+  // ":hf-inference" fissa esplicitamente il provider gratuito di Hugging Face.
+  // Senza questo suffisso il router sceglie in automatico QUALSIASI provider
+  // disponibile per il modello — anche uno a pagamento con solo endpoint
+  // dedicati (es. Together AI), che fallisce con un errore poco chiaro.
+  const model = (req.provider_config?.model as string) || "Qwen/Qwen2.5-7B-Instruct:hf-inference";
 
-  // API "chat completions" compatibile OpenAI: instrada automaticamente al
-  // provider (tra quelli disponibili su Hugging Face) che ospita il modello
-  // scelto, invece di dipendere dal solo "hf-inference" e dal suo elenco
-  // ristretto di modelli supportati per la vecchia API text-generation.
+  // API "chat completions" compatibile OpenAI.
   const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
