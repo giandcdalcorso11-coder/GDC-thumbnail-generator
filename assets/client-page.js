@@ -387,10 +387,7 @@ async function saveScript(){
 async function loadTextProviders(){
   TEXT_PROVIDERS = await sbSelect('thumb_text_providers', 'select=*');
   ACTIVE_TEXT_PROVIDER = TEXT_PROVIDERS.find(p => p.active) || null;
-  const el = document.getElementById('activeTextProviderBox');
-  if (!el) return;
-  if (!ACTIVE_TEXT_PROVIDER){ el.innerHTML = '<span class="text-grigio text-sm">Nessun motore di analisi attivo — vai in Motori AI.</span>'; return; }
-  el.innerHTML = `<span class="tag tag-maker">${escapeHtml(ACTIVE_TEXT_PROVIDER.name)}</span> <span class="text-xs text-grigio">${ACTIVE_TEXT_PROVIDER.kind}${ACTIVE_TEXT_PROVIDER.config?.model ? ' · ' + escapeHtml(ACTIVE_TEXT_PROVIDER.config.model) : ''}</span>`;
+  renderModelPickerButton('text');
 }
 
 async function analyzeScript(){
@@ -450,16 +447,76 @@ function copyText(t){ navigator.clipboard?.writeText(t); toast('Copiato: ' + t, 
 async function loadProviders(){
   PROVIDERS = await sbSelect('thumb_image_providers', 'select=*');
   ACTIVE_PROVIDER = PROVIDERS.find(p => p.active) || null;
-  renderActiveProviderBox();
+  renderModelPickerButton('image');
+  document.getElementById('generateBtn').classList.toggle('hidden', ACTIVE_PROVIDER?.kind === 'manual');
+  document.getElementById('genManualUpload').classList.toggle('hidden', ACTIVE_PROVIDER?.kind !== 'manual');
 }
 
-function renderActiveProviderBox(){
-  const el = document.getElementById('activeProviderBox');
-  if (!ACTIVE_PROVIDER){ el.innerHTML = '<span class="text-grigio text-sm">Nessun provider attivo — vai in Motore immagini.</span>'; return; }
-  el.innerHTML = `<span class="tag tag-maker">${escapeHtml(ACTIVE_PROVIDER.name)}</span> <span class="text-xs text-grigio">${ACTIVE_PROVIDER.kind}${ACTIVE_PROVIDER.config?.model ? ' · ' + escapeHtml(ACTIVE_PROVIDER.config.model) : ''}</span>`;
-  document.getElementById('generateBtn').classList.toggle('hidden', ACTIVE_PROVIDER.kind === 'manual');
-  document.getElementById('genManualUpload').classList.toggle('hidden', ACTIVE_PROVIDER.kind !== 'manual');
+// ─────────────────────────────────────────────────────────────────────────
+// SELETTORE MODELLO INLINE (pulsante + tendina in ogni step, con icona
+// 🆓/💰 per provider) — evita di dover uscire su providers.html solo per
+// cambiare motore o modello attivo.
+// ─────────────────────────────────────────────────────────────────────────
+const FREE_PROVIDER_KINDS = new Set(['huggingface', 'manual']);
+function costIcon(kind){ return FREE_PROVIDER_KINDS.has(kind) ? '🆓' : '💰'; }
+
+const MODEL_PICKERS = {
+  text: { table: 'thumb_text_providers', list: () => TEXT_PROVIDERS, active: () => ACTIVE_TEXT_PROVIDER, reload: loadTextProviders },
+  image: { table: 'thumb_image_providers', list: () => PROVIDERS, active: () => ACTIVE_PROVIDER, reload: loadProviders },
+};
+
+function toggleModelPicker(kind){
+  const wrap = document.getElementById(kind === 'text' ? 'textModelPicker' : 'imageModelPicker');
+  const willOpen = !wrap.classList.contains('open');
+  document.querySelectorAll('.model-picker.open').forEach(p => p.classList.remove('open'));
+  if (willOpen){ renderModelPicker(kind); wrap.classList.add('open'); }
 }
+
+function renderModelPickerButton(kind){
+  const btn = document.getElementById(kind === 'text' ? 'textModelPickerBtn' : 'imageModelPickerBtn');
+  if (!btn) return;
+  const active = MODEL_PICKERS[kind].active();
+  btn.innerHTML = active ? `${costIcon(active.kind)} ${escapeHtml(active.name)} ▾` : `⚠️ Nessun motore attivo ▾`;
+}
+
+function renderModelPicker(kind){
+  const cfg = MODEL_PICKERS[kind];
+  const listEl = document.getElementById(kind === 'text' ? 'textModelPickerList' : 'imageModelPickerList');
+  const list = cfg.list();
+  const manageLink = '<a class="model-picker-manage" href="providers.html">⚙️ Gestisci / aggiungi provider</a>';
+  if (!list.length){
+    listEl.innerHTML = '<div class="model-picker-empty">Nessun provider configurato.</div>' + manageLink;
+    return;
+  }
+  listEl.innerHTML = list.map(p => `
+    <div class="model-picker-row ${p.active ? 'active' : ''}" onclick="selectModel('${kind}','${p.id}')">
+      <span class="model-picker-cost" title="${FREE_PROVIDER_KINDS.has(p.kind) ? 'Gratuito' : 'A pagamento'}">${costIcon(p.kind)}</span>
+      <span style="flex:1;min-width:0;">
+        <div>${escapeHtml(p.name)}</div>
+        ${p.config?.model ? `<div class="text-xs text-grigio">${escapeHtml(p.config.model)}</div>` : ''}
+      </span>
+      ${p.active ? '<span class="text-xs">✓</span>' : ''}
+    </div>
+  `).join('') + manageLink;
+}
+
+async function selectModel(kind, id){
+  const cfg = MODEL_PICKERS[kind];
+  const wrap = document.getElementById(kind === 'text' ? 'textModelPicker' : 'imageModelPicker');
+  const p = cfg.list().find(x => x.id === id);
+  if (!p || p.active){ wrap.classList.remove('open'); return; }
+  try {
+    await sbUpdate(cfg.table, 'active=eq.true', { active: false });
+    await sbUpdate(cfg.table, `id=eq.${id}`, { active: true });
+    toast('Motore attivato: ' + p.name, 'ok');
+    await cfg.reload();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+  wrap.classList.remove('open');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.model-picker')) document.querySelectorAll('.model-picker.open').forEach(p => p.classList.remove('open'));
+});
 
 let SELECTED_REF_IDS = new Set();
 function renderGenRefGrid(){

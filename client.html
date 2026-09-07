@@ -24,6 +24,17 @@
   .kit-card img{ width:100%; aspect-ratio:16/9; object-fit:cover; }
   .kit-card .kit-body{ padding:8px 10px; flex:1; display:flex; flex-direction:column; gap:4px; }
   .kit-card .kit-del{ position:absolute; top:6px; right:6px; }
+
+  /* ── SELETTORE MODELLO INLINE (button + dropdown per step) ── */
+  .model-picker{ position:relative; }
+  .model-picker-list{ position:absolute; top:100%; right:0; margin-top:6px; background:var(--bianco); border:1.5px solid var(--border); border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.14); min-width:250px; max-width:320px; z-index:60; padding:6px; display:none; }
+  .model-picker.open .model-picker-list{ display:block; }
+  .model-picker-row{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:12.5px; }
+  .model-picker-row:hover{ background:var(--carta); }
+  .model-picker-row.active{ background:var(--carta); font-weight:700; }
+  .model-picker-cost{ font-size:14px; flex-shrink:0; }
+  .model-picker-empty{ padding:8px 10px; font-size:12px; color:var(--grigio); }
+  .model-picker-manage{ display:block; text-align:center; font-size:11px; padding:7px; margin-top:2px; border-top:1px solid var(--border); color:var(--grigio); }
 </style>
 </head>
 <body>
@@ -119,9 +130,11 @@
         <div class="step-body">
           <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
             <div class="section-lbl" style="margin:0;">Motore di analisi attivo</div>
-            <a class="btn btn-gh btn-sm" href="providers.html">Cambia motore</a>
+            <div class="model-picker" id="textModelPicker">
+              <button type="button" class="btn btn-s btn-sm" id="textModelPickerBtn" onclick="toggleModelPicker('text')">—</button>
+              <div class="model-picker-list" id="textModelPickerList"></div>
+            </div>
           </div>
-          <div id="activeTextProviderBox" class="mb-8">—</div>
           <div class="section-lbl">Script del video selezionato</div>
           <textarea class="textarea" id="scriptContent" style="min-height:200px;" placeholder="Incolla qui lo script, la scaletta o la bozza del video…"></textarea>
           <div class="flex gap-8 mt-12">
@@ -164,11 +177,13 @@
       <div class="step-card" id="step-generate">
         <div class="step-head"><span class="step-num">4</span><span class="step-title">✨ Genera proposte</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
-          <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+          <div class="flex items-center justify-between mb-12" style="flex-wrap:wrap;gap:8px;">
             <div class="section-lbl" style="margin:0;">Provider attivo</div>
-            <a class="btn btn-gh btn-sm" href="providers.html">Cambia provider</a>
+            <div class="model-picker" id="imageModelPicker">
+              <button type="button" class="btn btn-s btn-sm" id="imageModelPickerBtn" onclick="toggleModelPicker('image')">—</button>
+              <div class="model-picker-list" id="imageModelPickerList"></div>
+            </div>
           </div>
-          <div id="activeProviderBox" class="mb-12">—</div>
 
           <div class="field">
             <label class="lbl">Prompt scena miniatura</label>
