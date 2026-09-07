@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GDC Thumbnail Studio — Clienti</title>
+<title>GDC Thumbnail Studio — Pannello Master</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
 <div class="topbar">
   <div class="topbar-left">
-    <div class="brand"><span class="brand-dot"></span> GDC Thumbnail Studio</div>
+    <div class="brand"><span class="brand-dot"></span> Pannello Master</div>
   </div>
   <div class="topbar-right">
-    <a class="btn btn-gh btn-sm" href="providers.html">⚙️ Motore immagini</a>
+    <a class="btn btn-gh btn-sm" href="providers.html">⚙️ Motori AI</a>
     <span class="text-xs text-grigio" id="whoami"></span>
     <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
   </div>
@@ -22,19 +22,20 @@
 <div class="container">
   <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:10px;">
     <div>
-      <div class="ttl" style="margin-bottom:2px;">Clienti</div>
-      <div class="text-sm text-grigio">Un cliente = un canale YouTube: galleria volto, script, generazione, proposte.</div>
+      <div class="ttl" style="margin-bottom:2px;">Pannello Master</div>
+      <div class="text-sm text-grigio">Vista di controllo su tutti i profili: video, proposte, sblocchi. Da qui vedi tutto — nessun filtro per privacy ancora, da rivedere prima di aprire il tool ad altri.</div>
     </div>
   </div>
 
-  <div class="grid grid-3 mb-8" id="statsRow">
-    <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statClients">—</b><span>Clienti attivi</span></div></div>
+  <div class="grid grid-4 mb-8" id="statsRow">
+    <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statClients">—</b><span>Profili attivi</span></div></div>
     <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statVideos">—</b><span>Video in lavorazione</span></div></div>
     <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statProposals">—</b><span>Proposte approvate</span></div></div>
+    <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statUnlocked">—</b><span>Proposte sbloccate</span></div></div>
   </div>
 
   <div class="field" style="max-width:340px;">
-    <input class="inp" id="searchInput" placeholder="Cerca cliente…" oninput="renderClients()">
+    <input class="inp" id="searchInput" placeholder="Cerca profilo…" oninput="renderClients()">
   </div>
 
   <div id="clientList" class="grid" style="grid-template-columns:1fr; gap:10px;"></div>
@@ -103,14 +104,16 @@ let CLIENTS = [];
 
 async function loadStats(){
   try {
-    const [clientsRes, videosRes, proposalsRes] = await Promise.all([
+    const [clientsRes, videosRes, proposalsRes, unlockedRes] = await Promise.all([
       sbFetch('thumb_clients?select=id&status=eq.active', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
       sbFetch('thumb_videos?select=id&status=in.(script,generating,review)', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
       sbFetch('thumb_proposals?select=id&status=eq.approved', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
+      sbFetch('thumb_proposals?select=id&unlocked=eq.true', { headers: { Prefer: 'count=exact', Range: '0-0' } }),
     ]);
     document.getElementById('statClients').textContent = countFromRange(clientsRes);
     document.getElementById('statVideos').textContent = countFromRange(videosRes);
     document.getElementById('statProposals').textContent = countFromRange(proposalsRes);
+    document.getElementById('statUnlocked').textContent = countFromRange(unlockedRes);
   } catch(e){ console.error(e); }
 }
 function countFromRange(res){
@@ -122,7 +125,7 @@ async function loadClients(){
   document.getElementById('clientList').innerHTML = '<div class="loader">Caricamento clienti…</div>';
   try {
     CLIENTS = await sbSelect('thumb_clients',
-      'select=*,videos:thumb_videos(count),gallery:thumb_gallery_images(count),proposals:thumb_proposals(count)&order=created_at.desc');
+      'select=*,owner_user_id,videos:thumb_videos(count),gallery:thumb_gallery_images(count),proposals:thumb_proposals(count)&order=created_at.desc');
     renderClients();
   } catch(e){
     document.getElementById('clientList').innerHTML = `<div class="error-banner">Errore caricamento: ${escapeHtml(e.message)}</div>`;
@@ -152,6 +155,7 @@ function renderClients(){
         <div class="client-meta">
           ${c.niche ? `<span class="tag tag-sabbia">${escapeHtml(c.niche)}</span>` : ''}
           <span class="tag ${captureModeTagClass(c.capture_mode)}">${captureModeLabel(c.capture_mode)}</span>
+          <span class="tag ${c.owner_user_id ? 'tag-maker' : 'tag-grigio'}">${c.owner_user_id ? '👤 Assegnato' : 'Non assegnato'}</span>
         </div>
       </div>
       <div class="client-stats">

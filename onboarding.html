@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDC Thumbnail Studio — Il tuo profilo</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .onb-wrap{ max-width:480px; margin:0 auto; padding:32px 18px 60px; }
+  .onb-head{ text-align:center; margin-bottom:22px; }
+  .onb-head .brand-dot{ display:inline-block; width:14px; height:14px; }
+  .onb-title{ font-size:19px; font-weight:800; margin-top:8px; }
+  .onb-sub{ font-size:12.5px; color:var(--grigio); margin-top:4px; }
+  .onb-divider{ display:flex; align-items:center; gap:10px; margin:22px 0; color:var(--grigio); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .onb-divider::before, .onb-divider::after{ content:''; flex:1; height:1px; background:var(--border); }
+  .claim-card{ background:var(--bianco); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+  .claim-name{ font-weight:700; font-size:13.5px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left"><div class="brand"><span class="brand-dot"></span> GDC Thumbnail Studio</div></div>
+  <div class="topbar-right">
+    <a class="btn btn-gh btn-sm" href="clients.html">🔑 Pannello Master</a>
+    <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
+  </div>
+</div>
+
+<div class="onb-wrap">
+  <div id="loadingBox" class="loader">Verifico se hai già un profilo…</div>
+
+  <div id="createBox" class="hidden">
+    <div class="onb-head">
+      <span class="brand-dot" style="display:inline-block;"></span>
+      <div class="onb-title">Crea il tuo profilo</div>
+      <div class="onb-sub">È il tuo canale YouTube: da qui gestisci galleria volto, script e miniature.</div>
+    </div>
+
+    <div class="card">
+      <form id="createForm">
+        <div class="field">
+          <label class="lbl">Nome canale *</label>
+          <input class="inp" id="cf_name" required placeholder="Es. Il tuo nome o nome canale">
+        </div>
+        <div class="field">
+          <label class="lbl">URL canale YouTube</label>
+          <input class="inp" id="cf_channel_url" placeholder="https://www.youtube.com/@tuocanale">
+        </div>
+        <div class="grid grid-2">
+          <div class="field">
+            <label class="lbl">Nicchia</label>
+            <input class="inp" id="cf_niche" placeholder="Es. tech, gaming, vlog">
+          </div>
+          <div class="field">
+            <label class="lbl">Tono</label>
+            <input class="inp" id="cf_tone" placeholder="Es. energico, ironico">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-p btn-block">Crea profilo e inizia</button>
+      </form>
+    </div>
+
+    <div class="onb-divider" id="claimDivider" style="display:none;">oppure</div>
+    <div id="claimList"></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+if (!requireAuth()) {}
+
+async function init(){
+  try {
+    const mine = await sbSelect('thumb_clients', `owner_user_id=eq.${getUserId()}&select=id&limit=1`);
+    if (mine.length){
+      window.location.href = 'client.html?id=' + mine[0].id;
+      return;
+    }
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+
+  document.getElementById('loadingBox').classList.add('hidden');
+  document.getElementById('createBox').classList.remove('hidden');
+  loadUnclaimed();
+}
+
+async function loadUnclaimed(){
+  try {
+    const rows = await sbSelect('thumb_clients', 'owner_user_id=is.null&select=id,name,niche&order=created_at.asc');
+    if (!rows.length) return;
+    document.getElementById('claimDivider').style.display = 'flex';
+    document.getElementById('claimList').innerHTML =
+      '<div class="hint mb-8" style="text-align:center;">Profili di test non ancora assegnati a un account:</div>' +
+      rows.map(c => `
+        <div class="claim-card">
+          <div>
+            <div class="claim-name">${escapeHtml(c.name)}</div>
+            ${c.niche ? `<span class="tag tag-sabbia">${escapeHtml(c.niche)}</span>` : ''}
+          </div>
+          <button class="btn btn-s btn-sm" onclick="claimProfile('${c.id}')">Usa questo profilo</button>
+        </div>
+      `).join('');
+  } catch(e){ /* silenzioso: la creazione resta comunque disponibile */ }
+}
+
+async function claimProfile(id){
+  try {
+    await sbUpdate('thumb_clients', `id=eq.${id}`, { owner_user_id: getUserId() });
+    window.location.href = 'client.html?id=' + id;
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+document.getElementById('createForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const rows = await sbInsert('thumb_clients', {
+      name: document.getElementById('cf_name').value.trim(),
+      channel_url: document.getElementById('cf_channel_url').value.trim() || null,
+      niche: document.getElementById('cf_niche').value.trim() || null,
+      tone: document.getElementById('cf_tone').value.trim() || null,
+      owner_user_id: getUserId(),
+    });
+    window.location.href = 'client.html?id=' + rows[0].id;
+  } catch(err){ toast('Errore: ' + err.message, 'err'); }
+});
+
+init();
+</script>
+</body>
+</html>

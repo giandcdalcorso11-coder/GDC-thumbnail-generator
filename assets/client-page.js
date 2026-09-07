@@ -32,12 +32,63 @@ async function init(){
   document.getElementById('mainContainer').style.display = '';
   document.getElementById('clientBrandName').textContent = CLIENT.name;
   renderClientHeader();
+  populateProfileForm();
 
-  initTabs(document.getElementById('tabBar').parentElement);
+  initTabs(document.getElementById('mainTabBar').parentElement);
+  initStepper();
   wireGlobalHandlers();
 
-  await Promise.all([loadVideos(), loadGallery(), loadProviders(), loadTextProviders()]);
+  await Promise.all([loadVideos(), loadGallery(), loadProviders(), loadTextProviders(), loadKit()]);
   loadCaptureJobs();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// STEPPER VERTICALE (accordion a step singolo, si apre da solo al punto
+// raggiunto in base ai dati reali: script salvato, generazione fatta, ecc.)
+// ─────────────────────────────────────────────────────────────────────────
+function initStepper(){
+  document.querySelectorAll('.stepper .step-head').forEach(head => {
+    head.addEventListener('click', () => {
+      const card = head.closest('.step-card');
+      const wasOpen = card.classList.contains('open');
+      document.querySelectorAll('.stepper .step-card').forEach(c => c.classList.remove('open'));
+      if (!wasOpen){ card.classList.add('open'); if (card.id === 'step-preview') loadProposals(); }
+    });
+  });
+}
+
+function openStep(id){
+  document.querySelectorAll('.stepper .step-card').forEach(c => c.classList.toggle('open', c.id === id));
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (id === 'step-preview') loadProposals();
+}
+
+function setStepState(id, state){ document.getElementById(id)?.classList.add(state); }
+
+async function updateStepperProgress(){
+  document.querySelectorAll('.stepper .step-card').forEach(c => c.classList.remove('done', 'current'));
+  document.getElementById('step-gallery')?.classList.toggle('done', GALLERY.some(g => g.status === 'approved'));
+
+  if (!SELECTED_VIDEO_ID){ setStepState('step-video', 'current'); openStep('step-video'); return; }
+  setStepState('step-video', 'done');
+
+  const hasScript = !!(CURRENT_SCRIPT_ROW && CURRENT_SCRIPT_ROW.content);
+  if (!hasScript){ setStepState('step-script', 'current'); openStep('step-script'); return; }
+  setStepState('step-script', 'done');
+
+  if (!JOBS.length){ setStepState('step-generate', 'current'); openStep('step-generate'); return; }
+  setStepState('step-generate', 'done');
+
+  let hasProposal = false;
+  try {
+    const rows = await sbSelect('thumb_proposals', `video_id=eq.${SELECTED_VIDEO_ID}&select=id&limit=1`);
+    hasProposal = rows.length > 0;
+  } catch(e) { /* ignora, resta sullo step editor */ }
+
+  if (!hasProposal){ setStepState('step-editor', 'current'); openStep('step-editor'); return; }
+  setStepState('step-editor', 'done');
+  setStepState('step-preview', 'current');
+  openStep('step-preview');
 }
 
 function renderClientHeader(){
@@ -73,10 +124,11 @@ function wireGlobalHandlers(){
   });
 }
 
-function onSelectedVideoChanged(){
-  loadScriptForVideo();
+async function onSelectedVideoChanged(){
+  await loadScriptForVideo();
   renderGenRefGrid();
-  loadJobsForVideo();
+  await loadJobsForVideo();
+  await updateStepperProgress();
 }
 
 const STATUS_LABEL = { new:'Nuovo', script:'Script pronto', generating:'In generazione', review:'In revisione', done:'Completato' };
@@ -110,7 +162,7 @@ function renderVideoList(){
           </div>
         </div>
         <div class="flex gap-6">
-          <button class="btn btn-s btn-sm" onclick="selectVideoAndGoto('${v.id}','tab-script')">Script</button>
+          <button class="btn btn-s btn-sm" onclick="selectVideoAndGoto('${v.id}','step-script')">Script</button>
           <button class="btn btn-gh btn-sm" onclick="deleteVideo('${v.id}')">Elimina</button>
         </div>
       </div>
@@ -118,11 +170,10 @@ function renderVideoList(){
   `).join('');
 }
 
-function selectVideoAndGoto(videoId, tabId){
+function selectVideoAndGoto(videoId, stepId){
   SELECTED_VIDEO_ID = videoId;
   document.getElementById('activeVideoSelect').value = videoId;
-  onSelectedVideoChanged();
-  document.querySelector(`[data-tab="${tabId}"]`)?.click();
+  onSelectedVideoChanged().then(() => openStep(stepId));
 }
 
 function openNewVideo(){ document.getElementById('newVideoForm').reset(); openOverlay('newVideoOverlay'); }
@@ -537,7 +588,7 @@ function useJobInEditor(jobId){
   const j = JOBS.find(x => x.id === jobId);
   if (!j) return;
   resolveImageUrl(j.output_image_path).then(url => setEditorBackground(url, { sourceJobId: j.id }));
-  document.querySelector('[data-tab="tab-editor"]').click();
+  openStep('step-editor');
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -773,8 +824,8 @@ async function saveProposal(){
     }, { returnRow: false });
     await sbUpdate('thumb_videos', `id=eq.${SELECTED_VIDEO_ID}`, { status: 'review' });
     toast('Proposta salvata', 'ok');
-    document.querySelector('[data-tab="tab-proposals"]').click();
-    loadProposals();
+    openStep('step-preview');
+    updateStepperProgress();
     loadVideos();
   } catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
@@ -833,52 +884,130 @@ async function setProposalStatus(id, status){
   catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
-document.querySelector('[data-tab="tab-proposals"]')?.addEventListener('click', loadProposals);
-
 // ─────────────────────────────────────────────────────────────────────────
-// MODIFICA CLIENTE
+// TAB: PROFILO
 // ─────────────────────────────────────────────────────────────────────────
-function openEditClient(){
-  document.getElementById('ec_name').value = CLIENT.name || '';
-  document.getElementById('ec_channel_url').value = CLIENT.channel_url || '';
-  document.getElementById('ec_niche').value = CLIENT.niche || '';
-  document.getElementById('ec_tone').value = CLIENT.tone || '';
-  document.getElementById('ec_capture_mode').value = CLIENT.capture_mode || 'manual';
-  document.getElementById('ec_brand_colors').value = (CLIENT.brand_colors||[]).join(', ');
-  document.getElementById('ec_notes').value = CLIENT.notes || '';
-  document.getElementById('ec_logo_preview').src = '';
-  if (CLIENT.logo_path) resolveImageUrl(CLIENT.logo_path).then(url => document.getElementById('ec_logo_preview').src = url);
-  openOverlay('editClientOverlay');
+function populateProfileForm(){
+  document.getElementById('prof_name').value = CLIENT.name || '';
+  document.getElementById('prof_channel_url').value = CLIENT.channel_url || '';
+  document.getElementById('prof_niche').value = CLIENT.niche || '';
+  document.getElementById('prof_tone').value = CLIENT.tone || '';
+  document.getElementById('prof_capture_mode').value = CLIENT.capture_mode || 'manual';
+  document.getElementById('prof_brand_colors').value = (CLIENT.brand_colors||[]).join(', ');
+  document.getElementById('prof_notes').value = CLIENT.notes || '';
+  document.getElementById('prof_logo_preview').src = '';
+  if (CLIENT.logo_path) resolveImageUrl(CLIENT.logo_path).then(url => document.getElementById('prof_logo_preview').src = url);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('editClientForm').addEventListener('submit', async (e) => {
+  document.getElementById('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
       let logo_path = CLIENT.logo_path;
-      const file = document.getElementById('ec_logo_input').files[0];
+      const file = document.getElementById('prof_logo_input').files[0];
       if (file){
         const ext = (file.name.split('.').pop()||'png').toLowerCase();
         logo_path = `clients/${CLIENT_ID}/logo.${ext}`;
         await sbUpload(logo_path, file);
       }
       const payload = {
-        name: document.getElementById('ec_name').value.trim(),
-        channel_url: document.getElementById('ec_channel_url').value.trim() || null,
-        niche: document.getElementById('ec_niche').value.trim() || null,
-        tone: document.getElementById('ec_tone').value.trim() || null,
-        capture_mode: document.getElementById('ec_capture_mode').value,
-        brand_colors: document.getElementById('ec_brand_colors').value.split(',').map(s=>s.trim()).filter(Boolean),
-        notes: document.getElementById('ec_notes').value.trim() || null,
+        name: document.getElementById('prof_name').value.trim(),
+        channel_url: document.getElementById('prof_channel_url').value.trim() || null,
+        niche: document.getElementById('prof_niche').value.trim() || null,
+        tone: document.getElementById('prof_tone').value.trim() || null,
+        capture_mode: document.getElementById('prof_capture_mode').value,
+        brand_colors: document.getElementById('prof_brand_colors').value.split(',').map(s=>s.trim()).filter(Boolean),
+        notes: document.getElementById('prof_notes').value.trim() || null,
         logo_path,
         updated_at: new Date().toISOString(),
       };
       CLIENT = (await sbUpdate('thumb_clients', `id=eq.${CLIENT_ID}`, payload))[0];
       renderClientHeader();
-      closeOverlay('editClientOverlay');
-      toast('Cliente aggiornato', 'ok');
+      toast('Profilo aggiornato', 'ok');
     } catch(err){ toast('Errore: ' + err.message, 'err'); }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// TAB: PROFILO — kit permanente (foto/documenti/note riusabili sempre)
+// ─────────────────────────────────────────────────────────────────────────
+let KIT_ASSETS = [];
+
+async function loadKit(){
+  KIT_ASSETS = await sbSelect('thumb_client_assets', `client_id=eq.${CLIENT_ID}&select=*&order=created_at.desc`);
+  renderKit();
+}
+
+function renderKit(){
+  const el = document.getElementById('kitGrid');
+  if (!KIT_ASSETS.length){ el.innerHTML = '<div class="empty text-sm">Nessun elemento nel kit ancora.</div>'; return; }
+  el.innerHTML = KIT_ASSETS.map(a => `<div class="kit-card" id="kit-${a.id}"><div class="loader">…</div></div>`).join('');
+  KIT_ASSETS.forEach(a => {
+    const card = document.getElementById(`kit-${a.id}`);
+    if (!card) return;
+    if (a.kind === 'image' && a.storage_path){
+      resolveImageUrl(a.storage_path).then(url => {
+        card.innerHTML = `<img src="${url}"><div class="kit-body"><span class="text-xs">${escapeHtml(a.title||'Foto')}</span></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+      });
+    } else if (a.kind === 'document' && a.storage_path){
+      resolveImageUrl(a.storage_path).then(url => {
+        card.innerHTML = `<div class="kit-body"><div style="font-size:22px;">📄</div><a class="text-xs" href="${url}" target="_blank" rel="noopener">${escapeHtml(a.title||'Documento')}</a></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+      });
+    } else {
+      card.innerHTML = `<div class="kit-body"><span class="text-xs" style="font-weight:700;">📝 ${escapeHtml(a.title||'Nota')}</span><span class="text-xs text-grigio">${escapeHtml((a.note_text||'').slice(0,140))}</span></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+    }
+  });
+}
+
+async function deleteKitAsset(id){
+  if (!confirm('Eliminare questo elemento dal kit?')) return;
+  const a = KIT_ASSETS.find(x => x.id === id);
+  try {
+    await sbDelete('thumb_client_assets', `id=eq.${id}`);
+    if (a?.storage_path) await sbDeleteObject(a.storage_path).catch(()=>{});
+    loadKit();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+wireDropzone('kitImageDropzone', 'kitImageInput', async (files) => {
+  if (!files.length) return;
+  for (const file of files){
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `clients/${CLIENT_ID}/kit/${uid()}.${ext}`;
+      await sbUpload(path, file);
+      await sbInsert('thumb_client_assets', { client_id: CLIENT_ID, kind: 'image', storage_path: path, title: file.name }, { returnRow: false });
+    } catch(e){ toast('Errore upload: ' + e.message, 'err'); }
+  }
+  toast('Foto aggiunte al kit', 'ok');
+  loadKit();
+});
+
+document.getElementById('kitDocInput')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+    const path = `clients/${CLIENT_ID}/kit/${uid()}.${ext}`;
+    await sbUpload(path, file);
+    await sbInsert('thumb_client_assets', { client_id: CLIENT_ID, kind: 'document', storage_path: path, title: file.name }, { returnRow: false });
+    toast('Documento caricato', 'ok');
+    loadKit();
+  } catch(err){ toast('Errore: ' + err.message, 'err'); }
+  e.target.value = '';
+});
+
+function openKitNoteField(){ document.getElementById('kitNoteField').classList.remove('hidden'); }
+
+async function addKitNote(){
+  const text = document.getElementById('kitNoteText').value.trim();
+  if (!text) return;
+  try {
+    await sbInsert('thumb_client_assets', { client_id: CLIENT_ID, kind: 'note', note_text: text, title: text.slice(0,40) }, { returnRow: false });
+    document.getElementById('kitNoteText').value = '';
+    document.getElementById('kitNoteField').classList.add('hidden');
+    toast('Nota aggiunta', 'ok');
+    loadKit();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
 
 init();

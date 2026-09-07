@@ -48,7 +48,7 @@
 
 <script src="assets/app.js"></script>
 <script>
-if (getToken()) window.location.href = 'clients.html';
+if (getToken()) window.location.href = 'onboarding.html';
 
 let MODE = 'login'; // 'login' | 'signup'
 
@@ -83,7 +83,7 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error_description || data.msg || 'Credenziali non valide');
       setSession(data);
-      window.location.href = 'clients.html';
+      window.location.href = 'onboarding.html';
     } else {
       const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
         method: 'POST',
@@ -94,7 +94,7 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
       if (!res.ok) throw new Error(data.error_description || data.msg || 'Impossibile creare l\'account');
       if (data.access_token) {
         setSession(data);
-        window.location.href = 'clients.html';
+        window.location.href = 'onboarding.html';
       } else {
         okEl.textContent = 'Account creato — controlla la tua email per confermarla, poi accedi.';
         okEl.classList.remove('hidden');

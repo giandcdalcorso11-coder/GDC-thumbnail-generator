@@ -3,18 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GDC Thumbnail Studio — Cliente</title>
+<title>GDC Thumbnail Studio — Il tuo spazio</title>
 <link rel="stylesheet" href="assets/style.css">
+<style>
+  /* ── STEPPER VERTICALE ── */
+  .stepper{ display:flex; flex-direction:column; gap:10px; }
+  .step-card{ background:var(--bianco); border:1.5px solid var(--border); border-radius:14px; overflow:hidden; scroll-margin-top:70px; }
+  .step-card.done{ border-color:var(--maker); }
+  .step-card.current:not(.open){ border-color:var(--sabbia); }
+  .step-head{ display:flex; align-items:center; gap:12px; padding:14px 16px; cursor:pointer; user-select:none; }
+  .step-num{ width:28px; height:28px; border-radius:50%; background:var(--carta); border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0; color:var(--grigio); }
+  .step-card.done .step-num{ background:var(--maker); border-color:var(--maker); color:#fff; }
+  .step-card.current .step-num{ background:var(--sabbia); border-color:var(--sabbia-dk); color:var(--nero); }
+  .step-title{ font-weight:800; font-size:14px; flex:1; }
+  .step-chevron{ color:var(--grigio); transition:transform .2s; flex-shrink:0; }
+  .step-card.open .step-chevron{ transform:rotate(180deg); }
+  .step-body{ display:none; padding:0 16px 16px; }
+  .step-card.open .step-body{ display:block; }
+  .kit-card{ position:relative; border-radius:var(--radius-sm); overflow:hidden; border:1.5px solid var(--border); background:var(--bianco); min-height:110px; display:flex; flex-direction:column; }
+  .kit-card img{ width:100%; aspect-ratio:16/9; object-fit:cover; }
+  .kit-card .kit-body{ padding:8px 10px; flex:1; display:flex; flex-direction:column; gap:4px; }
+  .kit-card .kit-del{ position:absolute; top:6px; right:6px; }
+</style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="topbar-left">
-    <a class="btn btn-gh btn-sm" href="clients.html">← Clienti</a>
+    <a class="btn btn-gh btn-sm" href="clients.html">🔑 Master</a>
     <div class="brand" id="clientBrandName">…</div>
   </div>
   <div class="topbar-right">
-    <button class="btn btn-gh btn-sm" onclick="openEditClient()">Modifica cliente</button>
     <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
   </div>
 </div>
@@ -26,241 +45,271 @@
     <div id="clientTags" class="flex gap-6" style="flex-wrap:wrap;"></div>
   </div>
 
-  <div class="card mb-8" style="padding:10px 14px;">
-    <div class="flex items-center gap-10" style="flex-wrap:wrap;">
-      <label class="lbl" style="margin:0;">Video in lavorazione</label>
-      <select class="select" id="activeVideoSelect" style="max-width:360px;flex:1;"></select>
-      <a class="btn btn-gh btn-sm" href="#tab-video">Gestisci video</a>
+  <div class="tabs" id="mainTabBar">
+    <button class="tab-btn on" data-tab="view-create">🎬 Crea miniatura</button>
+    <button class="tab-btn" data-tab="view-profile">👤 Profilo</button>
+  </div>
+
+  <!-- ═══════════════════ VIEW: CREA MINIATURA ═══════════════════ -->
+  <div class="tab-panel on" id="view-create">
+
+    <div class="card mt-12 mb-8" style="padding:10px 14px;">
+      <div class="flex items-center gap-10" style="flex-wrap:wrap;">
+        <label class="lbl" style="margin:0;">Video in lavorazione</label>
+        <select class="select" id="activeVideoSelect" style="max-width:360px;flex:1;"></select>
+      </div>
+    </div>
+
+    <div class="stepper">
+
+      <!-- STEP 1: CANALE & VIDEO -->
+      <div class="step-card" id="step-video">
+        <div class="step-head"><span class="step-num">1</span><span class="step-title">📺 Canale &amp; Video</span><span class="step-chevron">⌄</span></div>
+        <div class="step-body">
+          <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+            <div class="section-lbl" style="margin:0;">I tuoi video</div>
+            <div class="flex gap-8">
+              <button class="btn btn-s btn-sm" onclick="importFromChannel()">⟳ Importa dal canale (RSS)</button>
+              <button class="btn btn-p btn-sm" onclick="openNewVideo()">＋ Aggiungi video</button>
+            </div>
+          </div>
+          <div id="videoList"><div class="loader">Caricamento…</div></div>
+        </div>
+      </div>
+
+      <!-- STEP 2: GALLERIA VOLTO -->
+      <div class="step-card" id="step-gallery">
+        <div class="step-head"><span class="step-num">2</span><span class="step-title">🖼️ Galleria volto</span><span class="step-chevron">⌄</span></div>
+        <div class="step-body">
+          <div class="section-lbl">Carica screenshot / foto del volto</div>
+          <div class="dropzone" id="galleryDropzone">
+            <input type="file" id="galleryFileInput" multiple accept="image/*">
+            Trascina qui le immagini o clicca per selezionarle<br>
+            <span class="text-xs">JPG/PNG — verranno segnate come "approvate" (curate a mano)</span>
+          </div>
+
+          <div class="card mt-12" id="captureAutoCard">
+            <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:8px;">
+              <div>
+                <div class="section-lbl" style="margin:0;">Raccolta automatica frame (yt-dlp)</div>
+                <div class="text-xs text-grigio mt-8">Estrae fotogrammi candidati dai video del canale per la revisione manuale qui sotto.</div>
+              </div>
+              <button class="btn btn-g btn-sm" onclick="startCaptureJob()">▶ Avvia raccolta automatica</button>
+            </div>
+            <div id="captureJobsList" class="mt-12"></div>
+          </div>
+
+          <div class="mt-12">
+            <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+              <div class="tabs" style="padding:0;" id="galleryFilterBar">
+                <button class="tab-btn on" data-gf="all">Tutte</button>
+                <button class="tab-btn" data-gf="candidate">Da rivedere</button>
+                <button class="tab-btn" data-gf="approved">Approvate</button>
+                <button class="tab-btn" data-gf="rejected">Rifiutate</button>
+              </div>
+            </div>
+            <div id="galleryGrid" class="gallery-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: SCRIPT & ANALISI -->
+      <div class="step-card" id="step-script">
+        <div class="step-head"><span class="step-num">3</span><span class="step-title">📝 Script &amp; Analisi</span><span class="step-chevron">⌄</span></div>
+        <div class="step-body">
+          <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+            <div class="section-lbl" style="margin:0;">Motore di analisi attivo</div>
+            <a class="btn btn-gh btn-sm" href="providers.html">Cambia motore</a>
+          </div>
+          <div id="activeTextProviderBox" class="mb-8">—</div>
+          <div class="section-lbl">Script del video selezionato</div>
+          <textarea class="textarea" id="scriptContent" style="min-height:200px;" placeholder="Incolla qui lo script, la scaletta o la bozza del video…"></textarea>
+          <div class="flex gap-8 mt-12">
+            <button class="btn btn-p" id="analyzeBtn" onclick="analyzeScript()">🤖 Analizza con AI</button>
+            <button class="btn btn-s" onclick="saveScript()">Salva script</button>
+          </div>
+          <div id="scriptError" class="error-banner mt-12 hidden"></div>
+
+          <div class="card mt-12 hidden" id="analysisCard">
+            <div class="section-lbl">Analisi AI</div>
+            <div class="grid grid-2">
+              <div>
+                <div class="lbl">Argomento</div>
+                <div class="text-sm mb-8" id="an_topic">—</div>
+                <div class="lbl">Tono</div>
+                <div class="mb-8"><span class="tag tag-athlete" id="an_tone">—</span></div>
+                <div class="lbl">Parole chiave</div>
+                <div class="swatch-row mb-8" id="an_keywords"></div>
+              </div>
+              <div>
+                <div class="lbl">Mood visivo</div>
+                <div class="text-sm mb-8" id="an_mood">—</div>
+                <div class="lbl">Palette colori</div>
+                <div class="swatch-row mb-8" id="an_palette"></div>
+              </div>
+            </div>
+            <div class="lbl">Titoli suggeriti (click per copiare)</div>
+            <div class="swatch-row mb-8" id="an_titles"></div>
+            <div class="lbl">Espressioni / pose consigliate</div>
+            <div class="swatch-row mb-8" id="an_expr"></div>
+            <div class="field mt-12">
+              <label class="lbl">Prompt per generazione immagine (editabile)</label>
+              <textarea class="textarea" id="an_prompt" style="min-height:80px;"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4: GENERA PROPOSTE -->
+      <div class="step-card" id="step-generate">
+        <div class="step-head"><span class="step-num">4</span><span class="step-title">✨ Genera proposte</span><span class="step-chevron">⌄</span></div>
+        <div class="step-body">
+          <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+            <div class="section-lbl" style="margin:0;">Provider attivo</div>
+            <a class="btn btn-gh btn-sm" href="providers.html">Cambia provider</a>
+          </div>
+          <div id="activeProviderBox" class="mb-12">—</div>
+
+          <div class="field">
+            <label class="lbl">Prompt scena miniatura</label>
+            <textarea class="textarea" id="genPrompt" style="min-height:90px;" placeholder="Descrivi la scena della miniatura (soggetto, espressione, ambientazione, stile)…"></textarea>
+          </div>
+          <div class="field">
+            <label class="lbl">Prompt negativo (opzionale)</label>
+            <input class="inp" id="genNegPrompt" value="blurry, low quality, distorted face, extra limbs, watermark, text">
+          </div>
+          <div class="field" style="max-width:220px;">
+            <label class="lbl">Formato</label>
+            <select class="select" id="genAspect">
+              <option value="16:9">16:9 — standard YouTube</option>
+              <option value="1:1">1:1 — quadrato</option>
+              <option value="4:3">4:3</option>
+            </select>
+          </div>
+          <div class="section-lbl mt-12">Immagini di riferimento volto (dalla galleria approvata)</div>
+          <div id="genRefGrid" class="gallery-grid mb-8"></div>
+          <button class="btn btn-p" id="generateBtn" onclick="runGenerate()">✨ Genera miniatura</button>
+          <div id="genManualUpload" class="mt-12 hidden">
+            <div class="info-banner mb-8">Provider "manuale": genera l'immagine altrove (es. ChatGPT/Midjourney) e caricala qui.</div>
+            <div class="dropzone" id="manualResultDropzone">
+              <input type="file" id="manualResultInput" accept="image/*">
+              Carica l'immagine generata
+            </div>
+          </div>
+
+          <div class="section-lbl mt-16">Risultati per questo video</div>
+          <div id="jobsGrid" class="gallery-grid"></div>
+        </div>
+      </div>
+
+      <!-- STEP 5: EDITOR -->
+      <div class="step-card" id="step-editor">
+        <div class="step-head"><span class="step-num">5</span><span class="step-title">🎨 Editor</span><span class="step-chevron">⌄</span></div>
+        <div class="step-body">
+          <div class="flex items-center gap-8 mb-8" style="flex-wrap:wrap;">
+            <div class="section-lbl" style="margin:0;">Immagine di base</div>
+            <button class="btn btn-s btn-sm" onclick="pickBaseFromJobs()">Da risultati generazione</button>
+            <button class="btn btn-s btn-sm" onclick="pickBaseFromGallery()">Da galleria</button>
+            <label class="btn btn-s btn-sm" style="cursor:pointer;">
+              Carica file <input type="file" id="editorUploadInput" accept="image/*" class="hidden">
+            </label>
+          </div>
+          <div id="baseImagePicker" class="gallery-grid hidden mb-8"></div>
+          <div class="editor-layout">
+            <div class="editor-canvas-wrap">
+              <canvas id="editorCanvas" width="1280" height="720" style="width:100%;height:auto;"></canvas>
+            </div>
+            <div>
+              <div class="section-lbl">Elementi</div>
+              <div class="flex gap-6 wrap mb-8">
+                <button class="btn btn-s btn-sm" onclick="addLayer('text')">+ Testo</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('rect')">+ Rettangolo</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('circle')">+ Cerchio</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('arrow')">+ Freccia</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('logo')">+ Logo</button>
+              </div>
+              <div id="layerList" class="mb-8"></div>
+              <div id="layerProps"></div>
+              <div class="field mt-12">
+                <label class="lbl">Etichetta proposta</label>
+                <input class="inp" id="proposalLabel">
+              </div>
+              <button class="btn btn-p btn-block" onclick="saveProposal()">💾 Salva come proposta</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 6: ANTEPRIMA & SBLOCCO -->
+      <div class="step-card" id="step-preview">
+        <div class="step-head"><span class="step-num">6</span><span class="step-title">✅ Anteprima &amp; Sblocco</span><span class="step-chevron">⌄</span></div>
+        <div class="step-body">
+          <p class="text-xs text-grigio mb-8">Ogni proposta ha la filigrana finché non viene sbloccata (in futuro: dopo il pagamento in base a dimensione canale/difficoltà — da definire).</p>
+          <div id="proposalsByVideo"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <div class="tabs" id="tabBar">
-    <button class="tab-btn on" data-tab="tab-video">📺 Canale &amp; Video</button>
-    <button class="tab-btn" data-tab="tab-gallery">🖼️ Galleria volto</button>
-    <button class="tab-btn" data-tab="tab-script">📝 Script &amp; Analisi</button>
-    <button class="tab-btn" data-tab="tab-generate">✨ Genera proposte</button>
-    <button class="tab-btn" data-tab="tab-editor">🎨 Editor</button>
-    <button class="tab-btn" data-tab="tab-proposals">✅ Proposte finali</button>
-  </div>
-
-  <!-- ══════════════ TAB: CANALE & VIDEO ══════════════ -->
-  <div class="tab-panel on" id="tab-video">
+  <!-- ═══════════════════ VIEW: PROFILO ═══════════════════ -->
+  <div class="tab-panel" id="view-profile">
     <div class="card mt-12">
-      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
-        <div class="section-lbl" style="margin:0;">Video del cliente</div>
-        <div class="flex gap-8">
-          <button class="btn btn-s btn-sm" onclick="importFromChannel()">⟳ Importa dal canale (RSS)</button>
-          <button class="btn btn-p btn-sm" onclick="openNewVideo()">＋ Aggiungi video</button>
+      <div class="section-lbl">Dati del profilo</div>
+      <form id="profileForm">
+        <div class="field"><label class="lbl">Nome canale *</label><input class="inp" id="prof_name" required></div>
+        <div class="field"><label class="lbl">URL canale</label><input class="inp" id="prof_channel_url"></div>
+        <div class="grid grid-2">
+          <div class="field"><label class="lbl">Nicchia</label><input class="inp" id="prof_niche"></div>
+          <div class="field"><label class="lbl">Tono</label><input class="inp" id="prof_tone"></div>
         </div>
-      </div>
-      <div id="videoList"><div class="loader">Caricamento…</div></div>
-    </div>
-  </div>
-
-  <!-- ══════════════ TAB: GALLERIA VOLTO ══════════════ -->
-  <div class="tab-panel" id="tab-gallery">
-    <div class="card mt-12">
-      <div class="section-lbl">Carica screenshot / foto del volto</div>
-      <div class="dropzone" id="galleryDropzone">
-        <input type="file" id="galleryFileInput" multiple accept="image/*">
-        Trascina qui le immagini o clicca per selezionarle<br>
-        <span class="text-xs">JPG/PNG — verranno segnate come "approvate" (curate a mano)</span>
-      </div>
-    </div>
-
-    <div class="card mt-12" id="captureAutoCard">
-      <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:8px;">
-        <div>
-          <div class="section-lbl" style="margin:0;">Raccolta automatica frame (yt-dlp)</div>
-          <div class="text-xs text-grigio mt-8">Estrae fotogrammi candidati dai video del canale per la revisione manuale qui sotto.</div>
+        <div class="field">
+          <label class="lbl">Acquisizione screenshot</label>
+          <select class="select" id="prof_capture_mode">
+            <option value="manual">Solo manuale</option>
+            <option value="auto">Solo automatica</option>
+            <option value="both">Entrambe</option>
+          </select>
         </div>
-        <button class="btn btn-g btn-sm" onclick="startCaptureJob()">▶ Avvia raccolta automatica</button>
-      </div>
-      <div id="captureJobsList" class="mt-12"></div>
-    </div>
-
-    <div class="card mt-12">
-      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
-        <div class="tabs" style="padding:0;" id="galleryFilterBar">
-          <button class="tab-btn on" data-gf="all">Tutte</button>
-          <button class="tab-btn" data-gf="candidate">Da rivedere</button>
-          <button class="tab-btn" data-gf="approved">Approvate</button>
-          <button class="tab-btn" data-gf="rejected">Rifiutate</button>
+        <div class="field"><label class="lbl">Colori brand (hex, virgola)</label><input class="inp" id="prof_brand_colors"></div>
+        <div class="field">
+          <label class="lbl">Logo</label>
+          <div class="flex items-center gap-10">
+            <img id="prof_logo_preview" style="width:46px;height:46px;border-radius:10px;object-fit:cover;background:var(--carta);border:1.5px solid var(--border);">
+            <input type="file" id="prof_logo_input" accept="image/*">
+          </div>
         </div>
-      </div>
-      <div id="galleryGrid" class="gallery-grid"></div>
-    </div>
-  </div>
-
-  <!-- ══════════════ TAB: SCRIPT & ANALISI ══════════════ -->
-  <div class="tab-panel" id="tab-script">
-    <div class="card mt-12">
-      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
-        <div class="section-lbl" style="margin:0;">Motore di analisi attivo</div>
-        <a class="btn btn-gh btn-sm" href="providers.html">Cambia motore</a>
-      </div>
-      <div id="activeTextProviderBox" class="mb-8">—</div>
-      <div class="section-lbl">Script del video selezionato</div>
-      <textarea class="textarea" id="scriptContent" style="min-height:220px;" placeholder="Incolla qui lo script, la scaletta o la bozza del video…"></textarea>
-      <div class="flex gap-8 mt-12">
-        <button class="btn btn-p" id="analyzeBtn" onclick="analyzeScript()">🤖 Analizza con AI</button>
-        <button class="btn btn-s" onclick="saveScript()">Salva script</button>
-      </div>
-      <div id="scriptError" class="error-banner mt-12 hidden"></div>
-    </div>
-
-    <div class="card mt-12 hidden" id="analysisCard">
-      <div class="section-lbl">Analisi AI</div>
-      <div class="grid grid-2">
-        <div>
-          <div class="lbl">Argomento</div>
-          <div class="text-sm mb-8" id="an_topic">—</div>
-          <div class="lbl">Tono</div>
-          <div class="mb-8"><span class="tag tag-athlete" id="an_tone">—</span></div>
-          <div class="lbl">Parole chiave</div>
-          <div class="swatch-row mb-8" id="an_keywords"></div>
-        </div>
-        <div>
-          <div class="lbl">Mood visivo</div>
-          <div class="text-sm mb-8" id="an_mood">—</div>
-          <div class="lbl">Palette colori</div>
-          <div class="swatch-row mb-8" id="an_palette"></div>
-        </div>
-      </div>
-      <div class="lbl">Titoli suggeriti (click per copiare)</div>
-      <div class="swatch-row mb-8" id="an_titles"></div>
-      <div class="lbl">Espressioni / pose consigliate</div>
-      <div class="swatch-row mb-8" id="an_expr"></div>
-      <div class="field mt-12">
-        <label class="lbl">Prompt per generazione immagine (editabile)</label>
-        <textarea class="textarea" id="an_prompt" style="min-height:80px;"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════ TAB: GENERA PROPOSTE ══════════════ -->
-  <div class="tab-panel" id="tab-generate">
-    <div class="card mt-12">
-      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
-        <div class="section-lbl" style="margin:0;">Provider attivo</div>
-        <a class="btn btn-gh btn-sm" href="providers.html">Cambia provider</a>
-      </div>
-      <div id="activeProviderBox">—</div>
+        <div class="field"><label class="lbl">Note</label><textarea class="textarea" id="prof_notes" style="min-height:70px;"></textarea></div>
+        <button type="submit" class="btn btn-p btn-block">Salva profilo</button>
+      </form>
     </div>
 
     <div class="card mt-12">
-      <div class="field">
-        <label class="lbl">Prompt scena miniatura</label>
-        <textarea class="textarea" id="genPrompt" style="min-height:90px;" placeholder="Descrivi la scena della miniatura (soggetto, espressione, ambientazione, stile)…"></textarea>
-      </div>
-      <div class="field">
-        <label class="lbl">Prompt negativo (opzionale)</label>
-        <input class="inp" id="genNegPrompt" value="blurry, low quality, distorted face, extra limbs, watermark, text">
-      </div>
-      <div class="field" style="max-width:220px;">
-        <label class="lbl">Formato</label>
-        <select class="select" id="genAspect">
-          <option value="16:9">16:9 — standard YouTube</option>
-          <option value="1:1">1:1 — quadrato</option>
-          <option value="4:3">4:3</option>
-        </select>
-      </div>
-      <div class="section-lbl mt-12">Immagini di riferimento volto (dalla galleria approvata)</div>
-      <div id="genRefGrid" class="gallery-grid mb-8"></div>
-      <button class="btn btn-p" id="generateBtn" onclick="runGenerate()">✨ Genera miniatura</button>
-      <div id="genManualUpload" class="mt-12 hidden">
-        <div class="info-banner mb-8">Provider "manuale": genera l'immagine altrove (es. ChatGPT/Midjourney) e caricala qui.</div>
-        <div class="dropzone" id="manualResultDropzone">
-          <input type="file" id="manualResultInput" accept="image/*">
-          Carica l'immagine generata
-        </div>
-      </div>
-    </div>
+      <div class="section-lbl">Kit permanente</div>
+      <p class="text-xs text-grigio mb-8">Foto del volto, documenti e regole di stile disponibili per ogni miniatura futura — non legati a un singolo video.</p>
 
-    <div class="card mt-12">
-      <div class="section-lbl">Risultati per questo video</div>
-      <div id="jobsGrid" class="gallery-grid"></div>
-    </div>
-  </div>
+      <div class="dropzone" id="kitImageDropzone">
+        <input type="file" id="kitImageInput" multiple accept="image/*">
+        Trascina qui foto di riferimento del volto o clicca per selezionarle
+      </div>
 
-  <!-- ══════════════ TAB: EDITOR ══════════════ -->
-  <div class="tab-panel" id="tab-editor">
-    <div class="card mt-12">
-      <div class="flex items-center gap-8 mb-8" style="flex-wrap:wrap;">
-        <div class="section-lbl" style="margin:0;">Immagine di base</div>
-        <button class="btn btn-s btn-sm" onclick="pickBaseFromJobs()">Da risultati generazione</button>
-        <button class="btn btn-s btn-sm" onclick="pickBaseFromGallery()">Da galleria</button>
-        <label class="btn btn-s btn-sm" style="cursor:pointer;">
-          Carica file <input type="file" id="editorUploadInput" accept="image/*" class="hidden">
+      <div class="grid grid-2 mt-12">
+        <label class="btn btn-s" style="cursor:pointer;justify-content:center;">
+          📄 Carica documento <input type="file" id="kitDocInput" class="hidden">
         </label>
+        <button class="btn btn-s" onclick="openKitNoteField()">📝 Aggiungi nota di stile</button>
       </div>
-      <div id="baseImagePicker" class="gallery-grid hidden mb-8"></div>
-      <div class="editor-layout">
-        <div class="editor-canvas-wrap">
-          <canvas id="editorCanvas" width="1280" height="720" style="width:100%;height:auto;"></canvas>
-        </div>
-        <div>
-          <div class="section-lbl">Elementi</div>
-          <div class="flex gap-6 wrap mb-8">
-            <button class="btn btn-s btn-sm" onclick="addLayer('text')">+ Testo</button>
-            <button class="btn btn-s btn-sm" onclick="addLayer('rect')">+ Rettangolo</button>
-            <button class="btn btn-s btn-sm" onclick="addLayer('circle')">+ Cerchio</button>
-            <button class="btn btn-s btn-sm" onclick="addLayer('arrow')">+ Freccia</button>
-            <button class="btn btn-s btn-sm" onclick="addLayer('logo')">+ Logo cliente</button>
-          </div>
-          <div id="layerList" class="mb-8"></div>
-          <div id="layerProps"></div>
-          <div class="field mt-12">
-            <label class="lbl">Etichetta proposta</label>
-            <input class="inp" id="proposalLabel">
-          </div>
-          <button class="btn btn-p btn-block" onclick="saveProposal()">💾 Salva come proposta</button>
-        </div>
+
+      <div class="field mt-12 hidden" id="kitNoteField">
+        <label class="lbl">Nota di stile</label>
+        <textarea class="textarea" id="kitNoteText" style="min-height:70px;" placeholder="Es. usa sempre sfondo scuro, font in maiuscolo, colori del brand…"></textarea>
+        <button class="btn btn-p btn-sm mt-8" onclick="addKitNote()">Salva nota</button>
       </div>
+
+      <div id="kitGrid" class="gallery-grid mt-12"></div>
     </div>
   </div>
 
-  <!-- ══════════════ TAB: PROPOSTE FINALI ══════════════ -->
-  <div class="tab-panel" id="tab-proposals">
-    <div class="card mt-12">
-      <div class="section-lbl">Tutte le proposte, per video</div>
-      <div id="proposalsByVideo"></div>
-    </div>
-  </div>
-
-</div>
-
-<!-- SHEET: modifica cliente -->
-<div class="overlay" id="editClientOverlay" onclick="if(event.target===this) closeOverlay('editClientOverlay')">
-  <div class="sheet">
-    <div class="sheet-header"><span class="sheet-title">Modifica cliente</span><button class="sheet-close" onclick="closeOverlay('editClientOverlay')">✕</button></div>
-    <form id="editClientForm">
-      <div class="field"><label class="lbl">Nome</label><input class="inp" id="ec_name" required></div>
-      <div class="field"><label class="lbl">URL canale</label><input class="inp" id="ec_channel_url"></div>
-      <div class="grid grid-2">
-        <div class="field"><label class="lbl">Nicchia</label><input class="inp" id="ec_niche"></div>
-        <div class="field"><label class="lbl">Tono</label><input class="inp" id="ec_tone"></div>
-      </div>
-      <div class="field">
-        <label class="lbl">Acquisizione screenshot</label>
-        <select class="select" id="ec_capture_mode">
-          <option value="manual">Solo manuale</option>
-          <option value="auto">Solo automatica</option>
-          <option value="both">Entrambe</option>
-        </select>
-      </div>
-      <div class="field"><label class="lbl">Colori brand (hex, virgola)</label><input class="inp" id="ec_brand_colors"></div>
-      <div class="field">
-        <label class="lbl">Logo cliente</label>
-        <div class="flex items-center gap-10">
-          <img id="ec_logo_preview" style="width:46px;height:46px;border-radius:10px;object-fit:cover;background:var(--carta);border:1.5px solid var(--border);">
-          <input type="file" id="ec_logo_input" accept="image/*">
-        </div>
-      </div>
-      <div class="field"><label class="lbl">Note</label><textarea class="textarea" id="ec_notes" style="min-height:70px;"></textarea></div>
-      <button type="submit" class="btn btn-p btn-block">Salva</button>
-    </form>
-  </div>
 </div>
 
 <!-- SHEET: nuovo video -->
