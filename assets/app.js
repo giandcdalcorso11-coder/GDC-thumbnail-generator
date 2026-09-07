@@ -13,6 +13,7 @@ const EDGE_FN = {
   analyzeScript: 'analyze-script',
   generateThumbnail: 'generate-thumbnail',
   fetchChannelVideos: 'fetch-channel-videos',
+  editImage: 'edit-image',
 };
 
 // Link diretti per gestire secret/chiavi API senza dover cercare — usati in providers.html

@@ -24,6 +24,7 @@
   .kit-card img{ width:100%; aspect-ratio:16/9; object-fit:cover; }
   .kit-card .kit-body{ padding:8px 10px; flex:1; display:flex; flex-direction:column; gap:4px; }
   .kit-card .kit-del{ position:absolute; top:6px; right:6px; }
+  .kit-card .kit-edit{ position:absolute; top:6px; left:6px; }
 
   /* ── SELETTORE MODELLO INLINE (button + dropdown per step) ── */
   .model-picker{ position:relative; }
@@ -35,6 +36,21 @@
   .model-picker-cost{ font-size:14px; flex-shrink:0; }
   .model-picker-empty{ padding:8px 10px; font-size:12px; color:var(--grigio); }
   .model-picker-manage{ display:block; text-align:center; font-size:11px; padding:7px; margin-top:2px; border-top:1px solid var(--border); color:var(--grigio); }
+
+  /* ── KIT → GALLERIA (riuso immagini permanenti) ── */
+  .kit-pick-card{ position:relative; border-radius:var(--radius-sm); overflow:hidden; border:1.5px solid var(--border); cursor:pointer; }
+  .kit-pick-card img{ width:100%; aspect-ratio:1/1; object-fit:cover; display:block; }
+  .kit-pick-card .kit-pick-add{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.0); color:#fff; font-size:22px; opacity:0; transition:opacity .15s, background .15s; }
+  .kit-pick-card:hover .kit-pick-add{ opacity:1; background:rgba(0,0,0,.35); }
+
+  /* ── MODIFICA IMMAGINE CON AI (overlay) ── */
+  .edit-compare{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .edit-compare img{ width:100%; border-radius:10px; background:var(--carta); }
+  @media (max-width:560px){ .edit-compare{ grid-template-columns:1fr; } }
+
+  /* ── IMPOSTAZIONI: righe provider compatte ── */
+  .settings-provider-row{ border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+  .settings-provider-row.active{ border-color:var(--maker); }
 </style>
 </head>
 <body>
@@ -59,6 +75,7 @@
   <div class="tabs" id="mainTabBar">
     <button class="tab-btn on" data-tab="view-create">🎬 Crea miniatura</button>
     <button class="tab-btn" data-tab="view-profile">👤 Profilo</button>
+    <button class="tab-btn" data-tab="view-settings">⚙️ Impostazioni</button>
   </div>
 
   <!-- ═══════════════════ VIEW: CREA MINIATURA ═══════════════════ -->
@@ -108,6 +125,12 @@
               <button class="btn btn-g btn-sm" onclick="startCaptureJob()">▶ Avvia raccolta automatica</button>
             </div>
             <div id="captureJobsList" class="mt-12"></div>
+          </div>
+
+          <div class="card mt-12" id="kitToGalleryCard">
+            <div class="section-lbl" style="margin:0;">Dal tuo kit permanente</div>
+            <p class="text-xs text-grigio mb-8">Tocca una foto per aggiungerla direttamente alla galleria di questo video, senza ricaricarla.</p>
+            <div id="kitToGalleryGrid" class="gallery-grid"></div>
           </div>
 
           <div class="mt-12">
@@ -325,6 +348,75 @@
     </div>
   </div>
 
+  <!-- ═══════════════════ VIEW: IMPOSTAZIONI ═══════════════════ -->
+  <div class="tab-panel" id="view-settings">
+
+    <div class="card mt-12">
+      <div class="section-lbl">🤖 Motori AI — tutti i passaggi</div>
+      <p class="text-xs text-grigio mb-8">
+        Stessa lista che vedi nei pulsanti rapidi di Script &amp; Analisi e Genera proposte —
+        qui puoi anche aggiungere provider, incollare chiavi API e aprire il sito dell'IA.
+        Le modifiche sono immediate ovunque nel tool.
+      </p>
+
+      <div class="section-lbl">📝 Analisi script</div>
+      <div id="settingsListText" class="mb-8"></div>
+      <button class="btn btn-s btn-sm mb-16" onclick="openSettingsProviderForm('text')">＋ Aggiungi motore analisi</button>
+
+      <div class="section-lbl">✨ Generazione immagini</div>
+      <div id="settingsListImage" class="mb-8"></div>
+      <button class="btn btn-s btn-sm mb-16" onclick="openSettingsProviderForm('image')">＋ Aggiungi provider immagine</button>
+
+      <div class="section-lbl">✏️ Modifica immagine (AI)</div>
+      <div id="settingsListEdit" class="mb-8"></div>
+      <button class="btn btn-s btn-sm" onclick="openSettingsProviderForm('edit')">＋ Aggiungi provider modifica</button>
+    </div>
+
+    <div class="card mt-12">
+      <div class="section-lbl">🔔 Notifiche</div>
+      <p class="text-xs text-grigio mb-8">L'invio vero e proprio arriva più avanti — da qui puoi già salvare le tue preferenze.</p>
+      <div id="notifPrefsList"></div>
+      <button class="btn btn-s btn-sm mt-8" onclick="saveNotificationPrefs()">Salva preferenze</button>
+    </div>
+
+    <div class="card mt-12">
+      <div class="section-lbl">🔒 Dati sensibili</div>
+      <div class="field"><label class="lbl">Email account</label><input class="inp" id="sec_email" disabled></div>
+      <div class="grid grid-2">
+        <div class="field"><label class="lbl">Nuova password</label><input class="inp" type="password" id="sec_pass1" autocomplete="new-password"></div>
+        <div class="field"><label class="lbl">Conferma password</label><input class="inp" type="password" id="sec_pass2" autocomplete="new-password"></div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="changePassword()">Aggiorna password</button>
+      <p class="text-xs text-grigio mt-8">Nome, canale, nicchia e logo si modificano nella tab Profilo.</p>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- SHEET: gestione provider (Impostazioni) -->
+<div class="overlay" id="settingsProvOverlay" onclick="if(event.target===this) closeOverlay('settingsProvOverlay')">
+  <div class="sheet">
+    <div class="sheet-header">
+      <span class="sheet-title" id="settingsProvTitle">Nuovo provider</span>
+      <button class="sheet-close" onclick="closeOverlay('settingsProvOverlay')">✕</button>
+    </div>
+    <form id="settingsProvForm">
+      <input type="hidden" id="sf_target">
+      <input type="hidden" id="sf_editId">
+      <div class="field"><label class="lbl">Nome visualizzato</label><input class="inp" id="sf_name" required></div>
+      <div class="field"><label class="lbl">Tipo</label><select class="select" id="sf_kind"></select></div>
+      <div class="field"><label class="lbl">Modello (id sul provider)</label><input class="inp" id="sf_model"></div>
+      <div class="field">
+        <label class="lbl">Chiave API</label>
+        <input class="inp" type="password" id="sf_api_key" autocomplete="off">
+        <div class="hint" id="sf_key_link"></div>
+      </div>
+      <div class="field"><label class="lbl">Nome secret (alternativa alla chiave sopra)</label><input class="inp" id="sf_secret"></div>
+      <div class="field"><label class="lbl">Parametri extra (JSON, opzionale)</label><textarea class="textarea" id="sf_extra"></textarea></div>
+      <button type="submit" class="btn btn-p btn-block">Salva provider</button>
+    </form>
+  </div>
 </div>
 
 <!-- SHEET: nuovo video -->
@@ -357,6 +449,48 @@
     <div class="flex gap-8">
       <button class="btn btn-s btn-block" onclick="saveImgDetail()">Salva tag</button>
       <button class="btn btn-gh" onclick="deleteImg()">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHEET: modifica immagine con AI (via testo) -->
+<div class="overlay" id="imgEditOverlay" onclick="if(event.target===this) closeOverlay('imgEditOverlay')">
+  <div class="sheet">
+    <div class="sheet-header">
+      <span class="sheet-title">✏️ Modifica con AI</span>
+      <button class="sheet-close" onclick="closeOverlay('imgEditOverlay')">✕</button>
+    </div>
+
+    <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+      <div class="section-lbl" style="margin:0;">Motore di modifica attivo</div>
+      <div class="model-picker" id="editModelPicker">
+        <button type="button" class="btn btn-s btn-sm" id="editModelPickerBtn" onclick="toggleModelPicker('edit')">—</button>
+        <div class="model-picker-list" id="editModelPickerList"></div>
+      </div>
+    </div>
+
+    <div class="edit-compare mb-12">
+      <div>
+        <div class="lbl">Originale</div>
+        <img id="editOrigImg">
+      </div>
+      <div>
+        <div class="lbl">Risultato</div>
+        <img id="editResultImg" style="display:none;">
+        <div id="editResultPlaceholder" class="empty text-xs" style="padding:24px 8px;">Scrivi un'istruzione e genera per vedere il risultato qui.</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Istruzione di modifica</label>
+      <textarea class="textarea" id="editPrompt" style="min-height:70px;" placeholder="Es. rendi lo sfondo più scuro, aggiungi un sorriso, cambia la maglietta di colore blu…"></textarea>
+    </div>
+    <div id="editError" class="error-banner mt-8 hidden"></div>
+    <button class="btn btn-p btn-block mt-8" id="editRunBtn" onclick="runImageEdit()">✨ Genera modifica</button>
+
+    <div class="flex gap-8 mt-12 hidden" id="editApplyRow">
+      <button class="btn btn-s btn-block" onclick="applyEditResult('new')">Salva come nuova immagine</button>
+      <button class="btn btn-g btn-block" onclick="applyEditResult('replace')">Sostituisci originale</button>
     </div>
   </div>
 </div>

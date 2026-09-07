@@ -14,6 +14,8 @@ let PROVIDERS = [];
 let ACTIVE_PROVIDER = null;
 let TEXT_PROVIDERS = [];
 let ACTIVE_TEXT_PROVIDER = null;
+let EDIT_PROVIDERS = [];
+let ACTIVE_EDIT_PROVIDER = null;
 let SELECTED_VIDEO_ID = null;
 let GALLERY_FILTER = 'all';
 let CURRENT_SCRIPT_ROW = null;
@@ -38,8 +40,9 @@ async function init(){
   initStepper();
   wireGlobalHandlers();
 
-  await Promise.all([loadVideos(), loadGallery(), loadProviders(), loadTextProviders(), loadKit()]);
+  await Promise.all([loadVideos(), loadGallery(), loadProviders(), loadTextProviders(), loadEditProviders(), loadKit()]);
   loadCaptureJobs();
+  initSettingsTab();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -228,6 +231,39 @@ async function loadGallery(){
   GALLERY = await sbSelect('thumb_gallery_images', `client_id=eq.${CLIENT_ID}&select=*&order=created_at.desc`);
   renderGallery();
   renderGenRefGrid();
+  renderKitToGalleryGrid();
+}
+
+// Kit permanente → Galleria: riusa una foto già caricata nel profilo (senza
+// ricaricarla) segnandola come approvata per questo video. Riusa lo stesso
+// storage_path del kit, niente duplicazione del file.
+function renderKitToGalleryGrid(){
+  const el = document.getElementById('kitToGalleryGrid');
+  if (!el) return;
+  const kitImages = (KIT_ASSETS || []).filter(a => a.kind === 'image' && a.storage_path);
+  const card = document.getElementById('kitToGalleryCard');
+  if (!kitImages.length){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const alreadyUsed = new Set(GALLERY.map(g => g.storage_path));
+  el.innerHTML = kitImages.map(a => `<div class="kit-pick-card" id="ktg-${a.id}" onclick="addKitImageToGallery('${a.id}')"><div class="loader">…</div></div>`).join('');
+  kitImages.forEach(a => resolveImageUrl(a.storage_path).then(url => {
+    const c = document.getElementById(`ktg-${a.id}`);
+    if (!c) return;
+    const used = alreadyUsed.has(a.storage_path);
+    c.innerHTML = `<img src="${url}"><div class="kit-pick-add">${used ? '✓ già in galleria' : '＋ usa qui'}</div>`;
+    if (used) c.style.opacity = '.55';
+  }));
+}
+
+async function addKitImageToGallery(kitAssetId){
+  const a = KIT_ASSETS.find(x => x.id === kitAssetId);
+  if (!a) return;
+  if (GALLERY.some(g => g.storage_path === a.storage_path)) { toast('Già presente in galleria', ''); return; }
+  try {
+    await sbInsert('thumb_gallery_images', { client_id: CLIENT_ID, storage_path: a.storage_path, source: 'manual', status: 'approved' }, { returnRow: false });
+    toast('Aggiunta alla galleria', 'ok');
+    loadGallery();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
 document.getElementById('galleryFilterBar')?.addEventListener('click', (e) => {
@@ -255,6 +291,7 @@ async function renderGallery(){
         <div class="img-actions">
           ${g.status !== 'approved' ? `<button class="btn btn-g" onclick="quickSetStatus('${g.id}','approved')">✓</button>` : ''}
           ${g.status !== 'rejected' ? `<button class="btn btn-o" onclick="quickSetStatus('${g.id}','rejected')">✕</button>` : ''}
+          <button class="btn btn-s" onclick="event.stopPropagation();openImgEdit('gallery','${g.id}')">✏️</button>
         </div>`;
     });
   }
@@ -390,6 +427,12 @@ async function loadTextProviders(){
   renderModelPickerButton('text');
 }
 
+async function loadEditProviders(){
+  EDIT_PROVIDERS = await sbSelect('thumb_edit_providers', 'select=*');
+  ACTIVE_EDIT_PROVIDER = EDIT_PROVIDERS.find(p => p.active) || null;
+  renderModelPickerButton('edit');
+}
+
 async function analyzeScript(){
   if (!SELECTED_VIDEO_ID) { toast('Seleziona prima un video', 'err'); return; }
   const content = document.getElementById('scriptContent').value.trim();
@@ -463,17 +506,19 @@ function costIcon(kind){ return FREE_PROVIDER_KINDS.has(kind) ? '🆓' : '💰';
 const MODEL_PICKERS = {
   text: { table: 'thumb_text_providers', list: () => TEXT_PROVIDERS, active: () => ACTIVE_TEXT_PROVIDER, reload: loadTextProviders },
   image: { table: 'thumb_image_providers', list: () => PROVIDERS, active: () => ACTIVE_PROVIDER, reload: loadProviders },
+  edit: { table: 'thumb_edit_providers', list: () => EDIT_PROVIDERS, active: () => ACTIVE_EDIT_PROVIDER, reload: loadEditProviders },
 };
+const MODEL_PICKER_IDS = { text: 'textModelPicker', image: 'imageModelPicker', edit: 'editModelPicker' };
 
 function toggleModelPicker(kind){
-  const wrap = document.getElementById(kind === 'text' ? 'textModelPicker' : 'imageModelPicker');
+  const wrap = document.getElementById(MODEL_PICKER_IDS[kind]);
   const willOpen = !wrap.classList.contains('open');
   document.querySelectorAll('.model-picker.open').forEach(p => p.classList.remove('open'));
   if (willOpen){ renderModelPicker(kind); wrap.classList.add('open'); }
 }
 
 function renderModelPickerButton(kind){
-  const btn = document.getElementById(kind === 'text' ? 'textModelPickerBtn' : 'imageModelPickerBtn');
+  const btn = document.getElementById(MODEL_PICKER_IDS[kind] + 'Btn');
   if (!btn) return;
   const active = MODEL_PICKERS[kind].active();
   btn.innerHTML = active ? `${costIcon(active.kind)} ${escapeHtml(active.name)} ▾` : `⚠️ Nessun motore attivo ▾`;
@@ -481,7 +526,7 @@ function renderModelPickerButton(kind){
 
 function renderModelPicker(kind){
   const cfg = MODEL_PICKERS[kind];
-  const listEl = document.getElementById(kind === 'text' ? 'textModelPickerList' : 'imageModelPickerList');
+  const listEl = document.getElementById(MODEL_PICKER_IDS[kind] + 'List');
   const list = cfg.list();
   const manageLink = '<a class="model-picker-manage" href="providers.html">⚙️ Gestisci / aggiungi provider</a>';
   if (!list.length){
@@ -502,7 +547,7 @@ function renderModelPicker(kind){
 
 async function selectModel(kind, id){
   const cfg = MODEL_PICKERS[kind];
-  const wrap = document.getElementById(kind === 'text' ? 'textModelPicker' : 'imageModelPicker');
+  const wrap = document.getElementById(MODEL_PICKER_IDS[kind]);
   const p = cfg.list().find(x => x.id === id);
   if (!p || p.active){ wrap.classList.remove('open'); return; }
   try {
@@ -993,6 +1038,7 @@ let KIT_ASSETS = [];
 async function loadKit(){
   KIT_ASSETS = await sbSelect('thumb_client_assets', `client_id=eq.${CLIENT_ID}&select=*&order=created_at.desc`);
   renderKit();
+  renderKitToGalleryGrid();
 }
 
 function renderKit(){
@@ -1004,7 +1050,7 @@ function renderKit(){
     if (!card) return;
     if (a.kind === 'image' && a.storage_path){
       resolveImageUrl(a.storage_path).then(url => {
-        card.innerHTML = `<img src="${url}"><div class="kit-body"><span class="text-xs">${escapeHtml(a.title||'Foto')}</span></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+        card.innerHTML = `<img src="${url}"><div class="kit-body"><span class="text-xs">${escapeHtml(a.title||'Foto')}</span></div><button class="btn btn-s btn-sm kit-edit" onclick="openImgEdit('kit','${a.id}')">✏️</button><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
       });
     } else if (a.kind === 'document' && a.storage_path){
       resolveImageUrl(a.storage_path).then(url => {
@@ -1064,6 +1110,265 @@ async function addKitNote(){
     document.getElementById('kitNoteField').classList.add('hidden');
     toast('Nota aggiunta', 'ok');
     loadKit();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODIFICA IMMAGINE CON AI (galleria + kit) — istruzione testuale su
+// un'immagine esistente, provider intercambiabile (thumb_edit_providers,
+// stesso pattern pluggable di analisi/generazione).
+// ─────────────────────────────────────────────────────────────────────────
+let EDIT_SOURCE = null; // { type:'gallery'|'kit', id, path, origUrl }
+let EDIT_RESULT_B64 = null;
+
+async function openImgEdit(type, id){
+  const item = (type === 'gallery' ? GALLERY : KIT_ASSETS).find(x => x.id === id);
+  if (!item || !item.storage_path) return;
+  const origUrl = await resolveImageUrl(item.storage_path);
+  EDIT_SOURCE = { type, id, path: item.storage_path, origUrl };
+  EDIT_RESULT_B64 = null;
+  document.getElementById('editOrigImg').src = origUrl;
+  document.getElementById('editPrompt').value = '';
+  document.getElementById('editError').classList.add('hidden');
+  document.getElementById('editResultImg').style.display = 'none';
+  document.getElementById('editResultPlaceholder').classList.remove('hidden');
+  document.getElementById('editApplyRow').classList.add('hidden');
+  renderModelPickerButton('edit');
+  openOverlay('imgEditOverlay');
+}
+
+async function runImageEdit(){
+  if (!ACTIVE_EDIT_PROVIDER) { toast('Nessun motore di modifica attivo — vai in Impostazioni', 'err'); return; }
+  const prompt = document.getElementById('editPrompt').value.trim();
+  if (!prompt) { toast("Scrivi un'istruzione di modifica", 'err'); return; }
+  const errEl = document.getElementById('editError');
+  errEl.classList.add('hidden');
+  const btn = document.getElementById('editRunBtn');
+  btn.disabled = true; btn.textContent = 'Modifica in corso…';
+  try {
+    const { ok, data } = await callEdgeFunction(EDGE_FN.editImage, {
+      provider_kind: ACTIVE_EDIT_PROVIDER.kind,
+      provider_config: ACTIVE_EDIT_PROVIDER.config,
+      image_url: EDIT_SOURCE.origUrl,
+      edit_prompt: prompt,
+    });
+    if (!ok) throw new Error(data.error || 'Modifica fallita');
+    EDIT_RESULT_B64 = data.image_base64;
+    const img = document.getElementById('editResultImg');
+    img.src = EDIT_RESULT_B64;
+    img.style.display = '';
+    document.getElementById('editResultPlaceholder').classList.add('hidden');
+    document.getElementById('editApplyRow').classList.remove('hidden');
+  } catch(e){
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Genera modifica';
+  }
+}
+
+async function applyEditResult(mode){
+  if (!EDIT_RESULT_B64 || !EDIT_SOURCE) return;
+  try {
+    if (mode === 'replace'){
+      await sbUploadDataUrl(EDIT_SOURCE.path, EDIT_RESULT_B64);
+      _signedUrlCache.delete(EDIT_SOURCE.path); // forza un nuovo URL firmato per evitare la cache del browser sull'immagine vecchia
+      toast('Immagine sostituita', 'ok');
+    } else {
+      const newPath = EDIT_SOURCE.type === 'gallery'
+        ? `clients/${CLIENT_ID}/gallery/${uid()}.png`
+        : `clients/${CLIENT_ID}/kit/${uid()}.png`;
+      await sbUploadDataUrl(newPath, EDIT_RESULT_B64);
+      if (EDIT_SOURCE.type === 'gallery'){
+        await sbInsert('thumb_gallery_images', { client_id: CLIENT_ID, storage_path: newPath, source: 'manual', status: 'approved' }, { returnRow: false });
+      } else {
+        await sbInsert('thumb_client_assets', { client_id: CLIENT_ID, kind: 'image', storage_path: newPath, title: 'Modificata con AI' }, { returnRow: false });
+      }
+      toast('Salvata come nuova immagine', 'ok');
+    }
+    closeOverlay('imgEditOverlay');
+    if (EDIT_SOURCE.type === 'gallery') loadGallery(); else loadKit();
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TAB: IMPOSTAZIONI — motori AI in un unico posto (sincronizzato con i
+// pulsanti rapidi negli step), preferenze notifiche (placeholder), dati
+// sensibili account (email/password).
+// ─────────────────────────────────────────────────────────────────────────
+const SETTINGS_SECTIONS = {
+  text:  { listId: 'settingsListText',  kinds: { huggingface:'Hugging Face', anthropic:'Anthropic', openai:'OpenAI' } },
+  image: { listId: 'settingsListImage', kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', manual:'Manuale' } },
+  edit:  { listId: 'settingsListEdit',  kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate' } },
+};
+
+function initSettingsTab(){
+  renderSettingsSection('text');
+  renderSettingsSection('image');
+  renderSettingsSection('edit');
+  document.getElementById('sec_email').value = getUserEmail() || '';
+  renderNotifPrefs();
+}
+
+function renderSettingsSection(key){
+  const s = SETTINGS_SECTIONS[key];
+  const list = MODEL_PICKERS[key].list();
+  const el = document.getElementById(s.listId);
+  if (!el) return;
+  if (!list.length){ el.innerHTML = '<div class="text-xs text-grigio">Nessun provider configurato.</div>'; return; }
+  el.innerHTML = list.map(p => {
+    const keyLink = PROVIDER_KEY_LINKS[p.kind];
+    const free = FREE_PROVIDER_KINDS.has(p.kind);
+    return `
+    <div class="settings-provider-row ${p.active ? 'active' : ''}">
+      <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:800;font-size:13.5px;">${escapeHtml(p.name)}</div>
+          <div class="flex gap-6 mt-8" style="flex-wrap:wrap;">
+            <span class="tag tag-grigio">${s.kinds[p.kind] || p.kind}</span>
+            ${p.config?.model ? `<span class="tag tag-sabbia">${escapeHtml(p.config.model)}</span>` : ''}
+            <span class="tag ${free ? 'tag-maker' : 'tag-athlete'}">${free ? '🆓 Gratis' : '💰 A pagamento'}</span>
+            ${p.active ? '<span class="tag tag-maker">✓ Attivo</span>' : ''}
+            ${p.kind !== 'manual' ? (p.config?.api_key ? '<span class="tag tag-maker">🔑 Chiave impostata</span>' : '<span class="tag tag-life">⚠️ Chiave mancante</span>') : ''}
+          </div>
+          ${keyLink ? `<a class="text-xs" href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ↗</a>` : ''}
+        </div>
+        <div class="flex gap-6" style="flex-direction:column;">
+          ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateSettingsProvider('${key}','${p.id}')">Attiva</button>` : ''}
+          <button class="btn btn-gh btn-sm" onclick="editSettingsProvider('${key}','${p.id}')">Modifica</button>
+          <button class="btn btn-gh btn-sm" onclick="deleteSettingsProviderRow('${key}','${p.id}')">Elimina</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fillSettingsKindSelect(target){
+  document.getElementById('sf_kind').innerHTML = Object.entries(SETTINGS_SECTIONS[target].kinds).map(([k,l]) => `<option value="${k}">${l}</option>`).join('');
+}
+
+function updateSettingsKeyLink(){
+  const link = PROVIDER_KEY_LINKS[document.getElementById('sf_kind').value];
+  document.getElementById('sf_key_link').innerHTML = link ? `<a href="${link.url}" target="_blank" rel="noopener">${link.label} ↗</a>` : '';
+}
+document.getElementById('sf_kind')?.addEventListener('change', updateSettingsKeyLink);
+
+function openSettingsProviderForm(target){
+  document.getElementById('settingsProvForm').reset();
+  document.getElementById('sf_target').value = target;
+  document.getElementById('sf_editId').value = '';
+  document.getElementById('settingsProvTitle').textContent = 'Nuovo provider';
+  fillSettingsKindSelect(target);
+  updateSettingsKeyLink();
+  openOverlay('settingsProvOverlay');
+}
+
+function editSettingsProvider(key, id){
+  const p = MODEL_PICKERS[key].list().find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('sf_target').value = key;
+  fillSettingsKindSelect(key);
+  document.getElementById('sf_editId').value = id;
+  document.getElementById('sf_name').value = p.name;
+  document.getElementById('sf_kind').value = p.kind;
+  document.getElementById('sf_model').value = p.config?.model || '';
+  document.getElementById('sf_api_key').value = p.config?.api_key || '';
+  document.getElementById('sf_secret').value = p.config?.secret_name || '';
+  document.getElementById('sf_extra').value = p.config?.extra_params ? JSON.stringify(p.config.extra_params) : '';
+  document.getElementById('settingsProvTitle').textContent = 'Modifica provider';
+  updateSettingsKeyLink();
+  openOverlay('settingsProvOverlay');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('settingsProvForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const target = document.getElementById('sf_target').value;
+    const editId = document.getElementById('sf_editId').value;
+    const table = MODEL_PICKERS[target].table;
+    let extra = {};
+    const raw = document.getElementById('sf_extra').value.trim();
+    if (raw) { try { extra = JSON.parse(raw); } catch { toast('JSON parametri extra non valido', 'err'); return; } }
+    const payload = {
+      name: document.getElementById('sf_name').value.trim(),
+      kind: document.getElementById('sf_kind').value,
+      config: {
+        model: document.getElementById('sf_model').value.trim() || undefined,
+        api_key: document.getElementById('sf_api_key').value.trim() || undefined,
+        secret_name: document.getElementById('sf_secret').value.trim() || undefined,
+        extra_params: Object.keys(extra).length ? extra : undefined,
+      },
+    };
+    try {
+      if (editId) await sbUpdate(table, `id=eq.${editId}`, payload);
+      else await sbInsert(table, { ...payload, active: false }, { returnRow: false });
+      closeOverlay('settingsProvOverlay');
+      await MODEL_PICKERS[target].reload();
+      renderSettingsSection(target);
+      toast('Provider salvato', 'ok');
+    } catch(err){ toast('Errore: ' + err.message, 'err'); }
+  });
+});
+
+async function activateSettingsProvider(key, id){
+  await selectModel(key, id);
+  renderSettingsSection(key);
+}
+
+async function deleteSettingsProviderRow(key, id){
+  if (!confirm('Eliminare questo provider?')) return;
+  try {
+    await sbDelete(MODEL_PICKERS[key].table, `id=eq.${id}`);
+    await MODEL_PICKERS[key].reload();
+    renderSettingsSection(key);
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+// ── NOTIFICHE (placeholder: salviamo la preferenza, l'invio arriva più avanti) ──
+const NOTIF_EVENTS = [
+  { key: 'proposal_ready', label: 'Nuova proposta generata' },
+  { key: 'proposal_approved', label: 'Proposta approvata' },
+  { key: 'unlock_requested', label: 'Richiesta di sblocco/pagamento' },
+  { key: 'capture_done', label: 'Raccolta frame completata' },
+];
+
+function renderNotifPrefs(){
+  const el = document.getElementById('notifPrefsList');
+  if (!el) return;
+  const prefs = CLIENT.notification_prefs || {};
+  el.innerHTML = NOTIF_EVENTS.map(ev => `
+    <label class="flex items-center gap-8 mb-8" style="cursor:pointer;">
+      <input type="checkbox" id="notif_${ev.key}" ${prefs[ev.key] ? 'checked' : ''}>
+      <span class="text-sm">${ev.label}</span>
+    </label>
+  `).join('');
+}
+
+async function saveNotificationPrefs(){
+  const prefs = {};
+  NOTIF_EVENTS.forEach(ev => { prefs[ev.key] = document.getElementById(`notif_${ev.key}`).checked; });
+  try {
+    CLIENT = (await sbUpdate('thumb_clients', `id=eq.${CLIENT_ID}`, { notification_prefs: prefs }))[0];
+    toast('Preferenze salvate (invio non ancora attivo)', 'ok');
+  } catch(e){ toast('Errore: ' + e.message, 'err'); }
+}
+
+// ── DATI SENSIBILI (email/password account, via Supabase Auth) ──
+async function changePassword(){
+  const p1 = document.getElementById('sec_pass1').value;
+  const p2 = document.getElementById('sec_pass2').value;
+  if (!p1 || p1.length < 6) { toast('La password deve avere almeno 6 caratteri', 'err'); return; }
+  if (p1 !== p2) { toast('Le due password non coincidono', 'err'); return; }
+  try {
+    const res = await fetch(`${SUPA_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: p1 }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).msg || 'Errore aggiornamento password');
+    document.getElementById('sec_pass1').value = '';
+    document.getElementById('sec_pass2').value = '';
+    toast('Password aggiornata', 'ok');
   } catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
 
