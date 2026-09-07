@@ -20,7 +20,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-type ProviderKind = "huggingface" | "fal" | "replicate" | "manual";
+type ProviderKind = "huggingface" | "fal" | "replicate" | "openai" | "manual";
 
 interface GenerateRequest {
   provider_kind: ProviderKind;
@@ -177,6 +177,38 @@ async function runReplicate(req: GenerateRequest): Promise<ProviderResult> {
   return { ok: false, status: "processing", poll_ref: pred.id, error: "Generazione ancora in corso su Replicate, riprova tra poco." };
 }
 
+// OpenAI — generazione diretta (senza passare da fal.ai/Replicate come
+// intermediari), gpt-image-1. Restituisce sempre b64_json, nessun problema
+// di CORS/download come per gli URL esterni di fal/Replicate.
+async function runOpenAI(req: GenerateRequest): Promise<ProviderResult> {
+  const secretName = (req.provider_config?.secret_name as string) || "OPENAI_API_KEY";
+  const apiKey = resolveApiKey(req.provider_config, secretName);
+  if (!apiKey) {
+    return { ok: false, error: `Chiave OpenAI non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea una chiave su platform.openai.com/api-keys.` };
+  }
+  const model = (req.provider_config?.model as string) || "gpt-image-1";
+  const sizeMap: Record<string, string> = { "1:1": "1024x1024", "16:9": "1536x1024", "4:3": "1536x1024" };
+  const size = sizeMap[req.aspect_ratio || "16:9"] || "1536x1024";
+
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model, prompt: req.prompt, size, n: 1,
+      ...(req.provider_config?.extra_params as Record<string, unknown> | undefined),
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    return { ok: false, error: `OpenAI error ${res.status}: ${errText}` };
+  }
+  const data = await res.json();
+  const item = data?.data?.[0];
+  if (item?.b64_json) return { ok: true, image_base64: `data:image/png;base64,${item.b64_json}` };
+  if (item?.url) return { ok: true, image_base64: await urlToBase64(item.url) };
+  return { ok: false, error: "OpenAI: nessuna immagine nella risposta" };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
@@ -201,6 +233,9 @@ Deno.serve(async (req: Request) => {
         break;
       case "replicate":
         result = await runReplicate(body);
+        break;
+      case "openai":
+        result = await runOpenAI(body);
         break;
       case "manual":
         result = { ok: false, error: "Provider 'manuale' selezionato: carica o incolla l'immagine direttamente nella scheda Genera/Proposte, non serve chiamare questa funzione." };

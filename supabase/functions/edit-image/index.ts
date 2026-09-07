@@ -7,7 +7,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
-type ProviderKind = "huggingface" | "fal" | "replicate";
+type ProviderKind = "huggingface" | "fal" | "replicate" | "openai";
 
 interface EditRequest {
   provider_kind: ProviderKind;
@@ -145,6 +145,41 @@ async function runReplicate(req: EditRequest): Promise<ProviderResult> {
   return { ok: false, status: "processing", poll_ref: pred.id, error: "Modifica ancora in corso su Replicate, riprova tra poco." };
 }
 
+// OpenAI — editing diretto via /v1/images/edits (multipart/form-data:
+// immagine + istruzione, nessuna maschera richiesta con gpt-image-1).
+async function runOpenAI(req: EditRequest): Promise<ProviderResult> {
+  const secretName = (req.provider_config?.secret_name as string) || "OPENAI_API_KEY";
+  const apiKey = resolveApiKey(req.provider_config, secretName);
+  if (!apiKey) {
+    return { ok: false, error: `Chiave OpenAI non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea una chiave su platform.openai.com/api-keys.` };
+  }
+  const model = (req.provider_config?.model as string) || "gpt-image-1";
+
+  const imgRes = await fetch(req.image_url);
+  if (!imgRes.ok) return { ok: false, error: `Impossibile scaricare l'immagine di partenza (HTTP ${imgRes.status})` };
+  const imgBlob = await imgRes.blob();
+
+  const form = new FormData();
+  form.append("model", model);
+  form.append("prompt", req.edit_prompt);
+  form.append("image", imgBlob, "image.png");
+
+  const res = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    return { ok: false, error: `OpenAI error ${res.status}: ${errText}` };
+  }
+  const data = await res.json();
+  const item = data?.data?.[0];
+  if (item?.b64_json) return { ok: true, image_base64: `data:image/png;base64,${item.b64_json}` };
+  if (item?.url) return { ok: true, image_base64: await urlToBase64(item.url) };
+  return { ok: false, error: "OpenAI: nessuna immagine nella risposta" };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
@@ -161,6 +196,7 @@ Deno.serve(async (req: Request) => {
       case "huggingface": result = await runHuggingFace(body); break;
       case "fal": result = await runFal(body); break;
       case "replicate": result = await runReplicate(body); break;
+      case "openai": result = await runOpenAI(body); break;
       default: result = { ok: false, error: `Provider sconosciuto: ${body.provider_kind}` };
     }
     return jsonResponse(result, result.ok ? 200 : 422);

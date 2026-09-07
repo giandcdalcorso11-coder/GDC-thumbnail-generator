@@ -435,21 +435,36 @@ async function loadEditProviders(){
 
 async function analyzeScript(){
   if (!SELECTED_VIDEO_ID) { toast('Seleziona prima un video', 'err'); return; }
-  const content = document.getElementById('scriptContent').value.trim();
-  if (!content) { toast('Incolla prima lo script', 'err'); return; }
-  if (!ACTIVE_TEXT_PROVIDER) { toast('Nessun motore di analisi attivo — vai in Motori AI', 'err'); return; }
+  if (!ACTIVE_TEXT_PROVIDER) { toast('Nessun motore di analisi attivo — vai in Impostazioni', 'err'); return; }
+  let content = document.getElementById('scriptContent').value.trim();
+  const video = VIDEOS.find(v => v.id === SELECTED_VIDEO_ID);
+  // Gemini è l'unico motore che può guardare il video direttamente da URL
+  // YouTube: se non hai incollato uno script, prova ad analizzare il video.
+  const useVideoUrl = ACTIVE_TEXT_PROVIDER.kind === 'gemini' && !content && video?.url;
+  if (!content && !useVideoUrl) {
+    toast(ACTIVE_TEXT_PROVIDER.kind === 'gemini' ? 'Incolla uno script oppure aggiungi l\'URL YouTube al video (Canale & Video)' : 'Incolla prima lo script', 'err');
+    return;
+  }
   const errEl = document.getElementById('scriptError');
   errEl.classList.add('hidden');
   const btn = document.getElementById('analyzeBtn');
-  btn.disabled = true; btn.textContent = 'Analisi in corso…';
+  btn.disabled = true; btn.textContent = useVideoUrl ? 'Guardo il video…' : 'Analisi in corso…';
   try {
     const { ok, data } = await callEdgeFunction(EDGE_FN.analyzeScript, {
       content,
+      video_url: useVideoUrl ? video.url : undefined,
       provider_kind: ACTIVE_TEXT_PROVIDER.kind,
       provider_config: ACTIVE_TEXT_PROVIDER.config,
       client_context: { name: CLIENT.name, niche: CLIENT.niche, tone: CLIENT.tone },
     });
     if (!ok) throw new Error(data.error || 'Errore sconosciuto');
+    // Se l'analisi è partita dal video (nessuno script incollato), lo script
+    // "letto" da Gemini diventa il contenuto salvato — chiude il workflow
+    // video → script → prompt → generazione senza doverlo scrivere a mano.
+    if (!content && data.analysis?.video_summary){
+      content = data.analysis.video_summary;
+      document.getElementById('scriptContent').value = content;
+    }
     renderAnalysis(data.analysis);
     // salva subito script + analisi
     if (CURRENT_SCRIPT_ROW){
@@ -500,7 +515,7 @@ async function loadProviders(){
 // 🆓/💰 per provider) — evita di dover uscire su providers.html solo per
 // cambiare motore o modello attivo.
 // ─────────────────────────────────────────────────────────────────────────
-const FREE_PROVIDER_KINDS = new Set(['huggingface', 'manual']);
+const FREE_PROVIDER_KINDS = new Set(['huggingface', 'manual', 'gemini']);
 function costIcon(kind){ return FREE_PROVIDER_KINDS.has(kind) ? '🆓' : '💰'; }
 
 const MODEL_PICKERS = {
@@ -1206,9 +1221,9 @@ async function applyEditResult(mode){
 // sensibili account (email/password).
 // ─────────────────────────────────────────────────────────────────────────
 const SETTINGS_SECTIONS = {
-  text:  { listId: 'settingsListText',  kinds: { huggingface:'Hugging Face', anthropic:'Anthropic', openai:'OpenAI' } },
-  image: { listId: 'settingsListImage', kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', manual:'Manuale' } },
-  edit:  { listId: 'settingsListEdit',  kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate' } },
+  text:  { listId: 'settingsListText',  kinds: { huggingface:'Hugging Face', gemini:'Google Gemini', anthropic:'Anthropic', openai:'OpenAI' } },
+  image: { listId: 'settingsListImage', kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', openai:'OpenAI', manual:'Manuale' } },
+  edit:  { listId: 'settingsListEdit',  kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', openai:'OpenAI' } },
 };
 
 function initSettingsTab(){

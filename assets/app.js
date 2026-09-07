@@ -30,6 +30,7 @@ const PROVIDER_KEY_LINKS = {
   replicate:   { label: 'Crea token Replicate',               url: 'https://replicate.com/account/api-tokens' },
   anthropic:   { label: 'Crea chiave Anthropic',               url: 'https://console.anthropic.com/settings/keys' },
   openai:      { label: 'Crea chiave OpenAI',                  url: 'https://platform.openai.com/api-keys' },
+  gemini:      { label: 'Crea chiave gratuita Google AI Studio', url: 'https://aistudio.google.com/apikey' },
   manual:      null,
 };
 

@@ -123,13 +123,13 @@ if (!requireAuth()) {}
 const SECTIONS = {
   image: {
     table: 'thumb_image_providers', listId: 'imageProviderList',
-    kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', manual:'Manuale' },
-    tagClass: { huggingface:'tag-athlete', fal:'tag-maker', replicate:'tag-sabbia', manual:'tag-grigio' },
+    kinds: { huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate', openai:'OpenAI', manual:'Manuale' },
+    tagClass: { huggingface:'tag-athlete', fal:'tag-maker', replicate:'tag-sabbia', openai:'tag-life', manual:'tag-grigio' },
   },
   text: {
     table: 'thumb_text_providers', listId: 'textProviderList',
-    kinds: { huggingface:'Hugging Face', anthropic:'Anthropic', openai:'OpenAI' },
-    tagClass: { huggingface:'tag-athlete', anthropic:'tag-sabbia', openai:'tag-maker' },
+    kinds: { huggingface:'Hugging Face', gemini:'Google Gemini', anthropic:'Anthropic', openai:'OpenAI' },
+    tagClass: { huggingface:'tag-athlete', gemini:'tag-life', anthropic:'tag-sabbia', openai:'tag-maker' },
   },
 };
 const DATA = { image: [], text: [] };
