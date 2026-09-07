@@ -192,6 +192,7 @@ def process_job(job):
 
     channel_id = resolve_channel_id(client["channel_url"])
     videos = fetch_recent_videos(channel_id, VIDEOS_PER_CLIENT)
+    print(f"  canale {client['channel_url']} -> ID {channel_id}, {len(videos)} video nel feed RSS")
     if not videos:
         sb_update("thumb_capture_jobs", f"id=eq.{job['id']}", {"status": "done", "frames_found": 0, "finished_at": now_iso()})
         return
