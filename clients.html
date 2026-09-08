@@ -11,7 +11,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <button class="btn btn-gh btn-sm" onclick="goBack('onboarding.html')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-arrow-left"></use></svg> Indietro</button>
-    <div class="brand"><span class="brand-mark">G</span><span class="brand-word">Pannello Master</span></div>
+    <div class="brand"><img class="brand-logo" src="assets/logo-gdc.svg" alt="GDC"><span class="brand-word">Pannello Master</span></div>
   </div>
   <div class="topbar-right">
     <a class="btn btn-gh btn-sm" href="providers.html"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-settings"></use></svg> Motori AI</a>
@@ -24,7 +24,7 @@
   <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:10px;">
     <div>
       <div class="ttl" style="margin-bottom:2px;">Pannello Master</div>
-      <div class="text-sm text-grigio">Vista di controllo su tutti i profili: video, proposte, sblocchi. Da qui vedi tutto — nessun filtro per privacy ancora, da rivedere prima di aprire il tool ad altri.</div>
+      <div class="text-sm text-grigio">Vista di controllo su tutti i profili: apri una scheda per vedere cosa ha configurato — non entri nel suo spazio di lavoro.</div>
     </div>
   </div>
 
@@ -35,6 +35,17 @@
     <div class="card"><div class="mini-stat" style="align-items:flex-start;"><b id="statUnlocked">—</b><span>Proposte sbloccate</span></div></div>
   </div>
 
+  <div class="card mb-8">
+    <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+      <div class="section-lbl" style="margin:0;">Motori AI attivi oggi (validi per tutti i profili)</div>
+      <a class="btn btn-s btn-sm" href="providers.html"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-settings"></use></svg> Gestisci</a>
+    </div>
+    <div class="hint mb-8">I motori non sono ancora collegabili singolarmente per cliente: questa è la configurazione unica valida per l'intero tool. Nella scheda di ogni profilo lo trovi ripetuto per chiarezza.</div>
+    <div class="grid grid-3" id="activeEnginesRow" style="gap:8px;">
+      <div class="text-xs text-grigio">Caricamento…</div>
+    </div>
+  </div>
+
   <div class="field" style="max-width:340px;">
     <input class="inp" id="searchInput" placeholder="Cerca profilo…" oninput="renderClients()">
   </div>
@@ -43,6 +54,17 @@
 </div>
 
 <button class="fab" title="Nuovo cliente" onclick="openClientSheet()"><svg class="icon icon-lg" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg></button>
+
+<!-- SHEET: prospetto di sola lettura su un profilo cliente -->
+<div class="overlay" id="prospettoOverlay" onclick="if(event.target===this) closeOverlay('prospettoOverlay')">
+  <div class="sheet">
+    <div class="sheet-header">
+      <span class="sheet-title" id="prospettoTitle">Profilo</span>
+      <button class="sheet-close" onclick="closeOverlay('prospettoOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button>
+    </div>
+    <div id="prospettoBody"><div class="loader">Caricamento…</div></div>
+  </div>
+</div>
 
 <!-- SHEET: crea/modifica cliente -->
 <div class="overlay" id="clientOverlay" onclick="if(event.target===this) closeOverlay('clientOverlay')">
@@ -98,7 +120,7 @@
 
 <script src="assets/app.js"></script>
 <script>
-if (!requireAuth()) { /* redirect già eseguito */ }
+if (!requireMaster()) { /* redirect già eseguito */ }
 document.getElementById('whoami').textContent = getUserEmail() || '';
 
 let CLIENTS = [];
@@ -126,11 +148,39 @@ async function loadClients(){
   document.getElementById('clientList').innerHTML = '<div class="loader">Caricamento clienti…</div>';
   try {
     CLIENTS = await sbSelect('thumb_clients',
-      'select=*,owner_user_id,videos:thumb_videos(count),gallery:thumb_gallery_images(count),proposals:thumb_proposals(count)&order=created_at.desc');
+      'select=*,owner_user_id,videos:thumb_videos(count),gallery:thumb_gallery_images(count),proposals:thumb_proposals(count),unlocked:thumb_proposals(count),kit:thumb_client_assets(count)&unlocked.unlocked=eq.true&order=created_at.desc');
     renderClients();
   } catch(e){
     document.getElementById('clientList').innerHTML = `<div class="error-banner">Errore caricamento: ${escapeHtml(e.message)}</div>`;
   }
+}
+
+const ENGINE_KIND_LABEL = {
+  huggingface:'Hugging Face', fal:'fal.ai', replicate:'Replicate',
+  openai:'OpenAI', anthropic:'Anthropic', gemini:'Google Gemini', manual:'Manuale',
+};
+async function loadActiveEngines(){
+  const el = document.getElementById('activeEnginesRow');
+  try {
+    const [img, txt, edt] = await Promise.all([
+      sbSelect('thumb_image_providers', 'select=name,kind,config&active=eq.true&limit=1'),
+      sbSelect('thumb_text_providers', 'select=name,kind,config&active=eq.true&limit=1'),
+      sbSelect('thumb_edit_providers', 'select=name,kind,config&active=eq.true&limit=1'),
+    ]);
+    const rows = [
+      { label:'Generazione immagine', row:img[0] },
+      { label:'Analisi script', row:txt[0] },
+      { label:'Modifica immagine', row:edt[0] },
+    ];
+    el.innerHTML = rows.map(r => `
+      <div>
+        <div class="text-xs text-grigio mb-2">${r.label}</div>
+        ${r.row
+          ? `<div class="flex items-center gap-6"><span class="cost-dot ${r.row.config?.api_key ? 'paid' : 'free'}"></span><b class="text-sm">${escapeHtml(ENGINE_KIND_LABEL[r.row.kind] || r.row.kind)}</b></div><div class="text-xs text-grigio">${escapeHtml(r.row.config?.model || r.row.name || '')}</div>`
+          : `<span class="text-xs text-grigio">Nessuno attivo</span>`}
+      </div>
+    `).join('');
+  } catch(e){ el.innerHTML = `<div class="text-xs text-grigio">Errore caricamento motori: ${escapeHtml(e.message)}</div>`; }
 }
 
 function captureModeLabel(m){
@@ -149,7 +199,7 @@ function renderClients(){
     return;
   }
   el.innerHTML = list.map(c => `
-    <a class="client-card" href="client.html?id=${c.id}">
+    <div class="client-card" onclick="openProspetto('${c.id}')">
       <div class="client-avatar">${escapeHtml((c.name||'?').slice(0,2).toUpperCase())}</div>
       <div class="client-info">
         <div class="client-name">${escapeHtml(c.name)}${c.status==='archived' ? ' <span class=\"tag tag-grigio\">Archiviato</span>' : ''}</div>
@@ -163,10 +213,70 @@ function renderClients(){
         <div class="mini-stat"><b>${c.videos?.[0]?.count ?? 0}</b><span>Video</span></div>
         <div class="mini-stat"><b>${c.gallery?.[0]?.count ?? 0}</b><span>Galleria</span></div>
         <div class="mini-stat"><b>${c.proposals?.[0]?.count ?? 0}</b><span>Proposte</span></div>
+        <div class="mini-stat"><b>${c.unlocked?.[0]?.count ?? 0}</b><span>Sbloccate</span></div>
       </div>
       <span class="arrow">›</span>
-    </a>
+    </div>
   `).join('');
+}
+
+function closeProspetto(){ closeOverlay('prospettoOverlay'); }
+
+function openProspetto(id){
+  const c = CLIENTS.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('prospettoTitle').textContent = c.name;
+  document.getElementById('prospettoBody').innerHTML = `
+    <div class="flex items-center gap-8 mb-12">
+      <span class="tag ${c.status==='archived' ? 'tag-grigio' : 'tag-maker'}">${c.status==='archived' ? 'Archiviato' : 'Attivo'}</span>
+      <span class="tag ${c.owner_user_id ? 'tag-maker' : 'tag-grigio'}">${c.owner_user_id ? icon('user','icon-sm') + ' Profilo assegnato' : 'Non ancora assegnato a un account'}</span>
+    </div>
+
+    <div class="section-lbl">Profilo</div>
+    <div class="card mb-12" style="padding:12px 14px;">
+      <div class="grid grid-2" style="gap:10px;">
+        <div>
+          <div class="text-xs text-grigio mb-2">Canale YouTube</div>
+          <div class="text-sm">${c.channel_url && /^https?:\/\//i.test(c.channel_url) ? `<a href="${escapeHtml(c.channel_url)}" target="_blank" rel="noopener">${escapeHtml(c.channel_url)}</a>` : c.channel_url ? escapeHtml(c.channel_url) : '<span class="text-grigio">Non salvato</span>'}</div>
+        </div>
+        <div>
+          <div class="text-xs text-grigio mb-2">Acquisizione screenshot</div>
+          <div class="text-sm">${captureModeLabel(c.capture_mode)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-grigio mb-2">Nicchia</div>
+          <div class="text-sm">${c.niche ? escapeHtml(c.niche) : '<span class="text-grigio">Non salvata</span>'}</div>
+        </div>
+        <div>
+          <div class="text-xs text-grigio mb-2">Tono</div>
+          <div class="text-sm">${c.tone ? escapeHtml(c.tone) : '<span class="text-grigio">Non salvato</span>'}</div>
+        </div>
+        <div>
+          <div class="text-xs text-grigio mb-2">Logo caricato</div>
+          <div class="text-sm">${c.logo_path ? icon('check','icon-sm') + ' Sì' : '<span class="text-grigio">No</span>'}</div>
+        </div>
+        <div>
+          <div class="text-xs text-grigio mb-2">Colori brand</div>
+          <div class="text-sm">${(c.brand_colors||[]).length ? (c.brand_colors||[]).map(h=>`<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${escapeHtml(h)};border:1px solid var(--border);margin-right:4px;vertical-align:middle;" title="${escapeHtml(h)}"></span>`).join('') : '<span class="text-grigio">Non salvati</span>'}</div>
+        </div>
+      </div>
+      ${c.notes ? `<div class="mt-8"><div class="text-xs text-grigio mb-2">Note</div><div class="text-sm">${escapeHtml(c.notes)}</div></div>` : ''}
+    </div>
+
+    <div class="section-lbl">Attività</div>
+    <div class="grid grid-4 mb-12" style="gap:8px;">
+      <div class="card" style="padding:10px;"><div class="mini-stat" style="align-items:flex-start;"><b>${c.videos?.[0]?.count ?? 0}</b><span>Video</span></div></div>
+      <div class="card" style="padding:10px;"><div class="mini-stat" style="align-items:flex-start;"><b>${c.gallery?.[0]?.count ?? 0}</b><span>Galleria</span></div></div>
+      <div class="card" style="padding:10px;"><div class="mini-stat" style="align-items:flex-start;"><b>${c.proposals?.[0]?.count ?? 0}</b><span>Proposte</span></div></div>
+      <div class="card" style="padding:10px;"><div class="mini-stat" style="align-items:flex-start;"><b>${c.kit?.[0]?.count ?? 0}</b><span>Kit permanente</span></div></div>
+    </div>
+
+    <div class="section-lbl">Motori AI collegati</div>
+    <div class="info-banner mb-12">Oggi i motori sono un'unica configurazione condivisa da tutti i profili, non ancora per singolo cliente — vedi la card "Motori AI attivi oggi" in cima al pannello. Questo cambierà quando lavoreremo sulla webapp clienti.</div>
+
+    <button type="button" class="btn btn-s btn-block" onclick="closeProspetto(); openClientSheet(CLIENTS.find(x=>x.id==='${c.id}'));">${icon('pencil','icon-sm')} Modifica profilo</button>
+  `;
+  openOverlay('prospettoOverlay');
 }
 
 function openClientSheet(client){
@@ -222,6 +332,7 @@ async function archiveClient(){
 
 loadClients();
 loadStats();
+loadActiveEngines();
 </script>
 </body>
 </html>

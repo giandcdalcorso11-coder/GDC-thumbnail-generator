@@ -11,7 +11,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <button class="btn btn-gh btn-sm" onclick="goBack('clients.html')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-arrow-left"></use></svg> Indietro</button>
-    <div class="brand"><span class="brand-mark">G</span><span class="brand-word">Motori AI</span></div>
+    <div class="brand"><img class="brand-logo" src="assets/logo-gdc.svg" alt="GDC"><span class="brand-word">Motori AI</span></div>
   </div>
   <div class="topbar-right">
     <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
@@ -118,7 +118,7 @@
 
 <script src="assets/app.js"></script>
 <script>
-if (!requireAuth()) {}
+if (!requireMaster()) {}
 
 const SECTIONS = {
   image: {

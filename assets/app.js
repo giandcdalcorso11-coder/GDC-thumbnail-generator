@@ -59,6 +59,19 @@ function requireAuth(){
   return true;
 }
 
+// Unico account "Master" (titolare GDC) — coincide con la policy RLS
+// is_master() lato Supabase (vedi supabase/migrations/0006_master_rls.sql).
+// La vera protezione dei dati è nel database: questo controllo lato client
+// serve solo a instradare l'interfaccia giusta e a non mostrare pagine che
+// per un account cliente sarebbero comunque vuote/bloccate dal database.
+const MASTER_EMAIL = 'giandcdalcorso11@gmail.com';
+function isMaster(){ return getUserEmail() === MASTER_EMAIL; }
+function requireMaster(){
+  if (!requireAuth()) return false;
+  if (!isMaster()) { window.location.href = 'onboarding.html'; return false; }
+  return true;
+}
+
 // Torna alla pagina precedente nella cronologia di questa sessione se ce n'è
 // una (es. arrivi qui da un link dentro il tool); altrimenti vai su una
 // destinazione di default sensata — utile quando la pagina è aperta diretta
