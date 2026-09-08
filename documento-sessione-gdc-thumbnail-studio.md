@@ -1,7 +1,7 @@
 # Documento di Sessione — GDC Thumbnail Studio
 
-**Versione:** 5
-**Ultimo aggiornamento:** [2026-09-08 23:10]
+**Versione:** 6
+**Ultimo aggiornamento:** [2026-09-08 23:45]
 
 ## Vision
 
@@ -298,6 +298,56 @@ in `thumb_gallery_images` con `source='auto'`.
 - [2026-09-07] **Bug 4 — non risolto: YouTube blocca il download.** Sintomo: ogni download `yt-dlp` fallisce con `Sign in to confirm you're not a bot`, pur risolvendo correttamente canale (`UCirnRRX1fQkWGjFKUNYNM6g`) e feed RSS (3 video trovati). Causa: blocco anti-bot di YouTube sugli IP dei runner GitHub Actions — non un bug nel nostro codice. Fix applicato: nessuno che funzioni — tentato `--extractor-args youtube:player_client=android` (workaround comunitario noto), **non ha risolto** (stesso errore su tutti i 9 tentativi). Fix rimasto ma non implementato: autenticazione via cookie di una sessione YouTube reale (da esportare dal browser, salvare come secret, rinnovare periodicamente — più fragile e con implicazioni di sicurezza). Deprioritizzato dopo la decisione dell'8 settembre: il caricamento manuale in Kit/Galleria resta la via consigliata.
 
 ## Storico sessioni
+
+### [2026-09-08 23:45] Tab "Guida modelli" con ricerca sui motori collegabili
+
+**Riepilogo:** Aggiunta in `client.html` una tab "Guida modelli", raggiungibile da icone info (tooltip al passaggio del mouse) vicino ai tre selettori di motore, con schede sui modelli disponibili per ciascun task (generazione immagine, analisi script, modifica immagine), basate su ricerche web aggiornate a settembre 2026.
+
+**Cosa è stato fatto:**
+- Nuova tab "Guida modelli" (icone info → `goToGuide('text'|'image'|'edit')` → apre la tab e scorre alla sezione giusta).
+- Ricerca web mirata sui modelli effettivamente collegabili nei 3 kind di provider di questo tool (non modelli generici): per l'immagine, confronto identity-preservation tra PuLID (94-96%), InstantID (88-92%, già default fal.ai) e i motori senza reference (FLUX.1-schnell su Hugging Face, gpt-image-1 su OpenAI); per il testo, Gemini 2.5/3 Flash (gratuito, unico che legge anche video da URL), Claude Haiku 4.5 (default attuale), GPT-4o mini, Qwen2.5-7B (gratuito HF); per l'editing, FLUX.1 Kontext (default fal.ai, oggi lo standard) vs Instruct-Pix2Pix (HF, gratuito ma modello 2023, superato) vs gpt-image-1.
+- **Scoperta rilevante dalla ricerca sul codice** (non solo sui modelli esterni): leggendo `runHuggingFace()` e `runOpenAI()` in `generate-thumbnail.ts` è emerso che questi due motori non inviano mai `reference_image_urls` — generano solo dal prompt testuale, ignorando le foto della Galleria volto. Solo fal.ai (con InstantID/PuLID) e Replicate (se il modello scelto lo supporta) usano davvero la coerenza del volto. Segnalato esplicitamente in guida per ogni motore, non nascosto.
+- Aggiunta icona `icon-info` in `assets/icons.svg`; CSS per tooltip a comparsa (`.info-tip`) e per le card modello (`.model-card`, evidenziate con `.rec` per i consigliati) in `client.html`.
+
+**Decisioni prese:**
+- Contesto: come segnalare i motori che non usano le foto di riferimento, senza nasconderlo.
+- Decisione: nota esplicita "Attenzione" dentro la card di ogni motore che ignora `reference_image_urls`, stesso principio di trasparenza già usato nella tab Prezzi.
+- Da rivedere se: quando cambieranno i motori di default configurati (es. se gpt-image-1 verrà sostituito prima del ritiro OpenAI del 23 ottobre 2026), aggiornare anche questa guida.
+
+**File consegnati/modificati:**
+- `client.html` (tab Guida modelli, icone info sui 3 step, CSS `.info-tip`/`.model-card`)
+- `assets/client-page.js` (funzione `goToGuide()`)
+- `assets/icons.svg` (icona `icon-info`)
+
+**Impatto su Vision/Pipeline:** nessuna modifica a Vision. Non ho aggiunto un nuovo step Pipeline dedicato — la guida è parte dello Step 4 (Area di lavoro cliente), stesso principio già usato per il redesign visivo dell'8/9 (non un contenitore per ogni sessione di polish).
+
+---
+
+### [2026-09-08 23:10] Isolamento reale Master/cliente (RLS + storage) e logo reale
+
+**Riepilogo:** L'utente ha notato che il pannello Master era raggiungibile da un link nelle pagine cliente; la ricerca sul codice ha rivelato un problema più ampio (RLS completamente permissiva su tutte le tabelle) risolto con un vero isolamento dei dati, più redesign del pannello Master e inserimento del logo reale fornito dall'utente.
+
+**Cosa è stato fatto:**
+- **Bug/gap di sicurezza: accesso dati non isolato tra clienti.** Sintomo: il pulsante "Master" era visibile da `client.html`/`onboarding.html`. Causa: tutte le tabelle avevano RLS `for all to authenticated using (true)` — qualsiasi account cliente poteva leggere/scrivere i dati di TUTTI gli altri clienti chiamando direttamente le API Supabase, a prescindere dai link mostrati. Fix applicato (verificato a livello di policy SQL, non ancora con un secondo account cliente reale): migrazione `0006_master_rls.sql` — funzione `is_master()` (email fissa del titolare) e `owns_client()`; `thumb_clients` e le 7 tabelle figlie ristrette per `owner_user_id`/`client_id`; storage bucket `thumb-assets` ristretto per path `clients/<client_id>/...`. Le tabelle di configurazione motori AI globali restano permissive (non ancora per-cliente, nota lasciata in migrazione).
+- Rimossi del tutto i link "Master"/"Pannello Master" da `client.html` e `onboarding.html`; l'account Master viene reindirizzato automaticamente a `clients.html` dopo login (`isMaster()`/`requireMaster()` in `app.js`, email fissa).
+- Pannello Master ridisegnato: cliccare un cliente apre un prospetto di sola lettura (profilo, colori, logo, note, contatori attività, kit permanente) invece del suo spazio di lavoro, su richiesta esplicita dell'utente. Aggiunta card "Motori AI attivi oggi" (configurazione globale).
+- Inserito il logo reale (`assets/logo-gdc.svg`, caricato dall'utente direttamente sul repo GitHub perché l'upload in chat non funzionava) al posto del monogramma placeholder in Master/Motori AI/onboarding/login.
+
+**Decisioni prese:**
+- Contesto: che livello di fix per l'accesso al Master — solo UI o anche database.
+- Decisione (scelta dall'utente tra due opzioni proposte): fix UI + isolamento reale nel database.
+- Supera la decisione del: 7-8 set 2026 (Step 8 Pipeline, stato "nessun filtro privacy ancora, da rivedere").
+
+**File consegnati/modificati:**
+- `supabase/migrations/0006_master_rls.sql` (nuovo, applicato al progetto Supabase)
+- `assets/app.js` (`MASTER_EMAIL`, `isMaster()`, `requireMaster()`)
+- `client.html`, `onboarding.html`, `providers.html`, `clients.html` (rimozione link, redirect, prospetto cliente, `requireMaster()`)
+- `assets/style.css` (`.brand-logo`, utility `.mb-2`/`.mb-12`)
+- `assets/logo-gdc.svg` (nuovo, spostato da upload GitHub)
+
+**Impatto su Vision/Pipeline:** aggiornato lo Step 8 (Pannello Master) — vedi Pipeline per il dettaglio completo del cambiamento.
+
+---
 
 ### [2026-09-08 22:20] Preset multi-piattaforma per la generazione (YouTube, Shorts, IG, FB/LinkedIn, Pinterest)
 
