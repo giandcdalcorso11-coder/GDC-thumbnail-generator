@@ -1,7 +1,7 @@
 # Documento di Sessione — GDC Thumbnail Studio
 
-**Versione:** 2
-**Ultimo aggiornamento:** [2026-09-08 20:15]
+**Versione:** 3
+**Ultimo aggiornamento:** [2026-09-08 21:40]
 
 ## Vision
 
@@ -260,6 +260,45 @@ in `thumb_gallery_images` con `source='auto'`.
 - [2026-09-07] **Bug 4 — non risolto: YouTube blocca il download.** Sintomo: ogni download `yt-dlp` fallisce con `Sign in to confirm you're not a bot`, pur risolvendo correttamente canale (`UCirnRRX1fQkWGjFKUNYNM6g`) e feed RSS (3 video trovati). Causa: blocco anti-bot di YouTube sugli IP dei runner GitHub Actions — non un bug nel nostro codice. Fix applicato: nessuno che funzioni — tentato `--extractor-args youtube:player_client=android` (workaround comunitario noto), **non ha risolto** (stesso errore su tutti i 9 tentativi). Fix rimasto ma non implementato: autenticazione via cookie di una sessione YouTube reale (da esportare dal browser, salvare come secret, rinnovare periodicamente — più fragile e con implicazioni di sicurezza). Deprioritizzato dopo la decisione dell'8 settembre: il caricamento manuale in Kit/Galleria resta la via consigliata.
 
 ## Storico sessioni
+
+### [2026-09-08 21:40] Redesign visivo: icone, tab Prezzi trasparente, CTA profilo
+
+**Riepilogo:** Prima passata di redesign grafico su tutto il tool — sistema
+di icone SVG al posto delle emoji, wordmark provvisorio, nuova tab "Prezzi"
+che spiega il modello di monetizzazione senza nasconderlo, e una CTA
+visiva che spinge a completare il profilo prima di generare.
+
+**Cosa è stato fatto:**
+- Creato `assets/icons.svg`: sprite SVG condiviso con ~28 icone outline monocromatiche (currentColor), più l'helper `icon(name, cls)` in `app.js` per generarle nelle stringhe dinamiche.
+- Sostituite tutte le emoji dell'interfaccia (topbar, tab, titoli step, pulsanti, badge, stati vuoti) con le nuove icone, in `client.html`, `clients.html`, `providers.html`, `onboarding.html` e `assets/client-page.js`.
+- L'indicatore gratis/pagamento dei motori AI (prima 🆓/💰) è diventato un pallino colorato (`.cost-dot`), coerente con il linguaggio visivo già usato per il `brand-dot`.
+- Aggiunto un wordmark provvisorio (`.brand-mark` monogramma + `.brand-word` testo) al posto del semplice pallino+testo — pronto per essere sostituito dal logo reale quando l'utente lo carica (ha il file ma deve essere al PC).
+- Nuova tab **Prezzi** in `client.html`: spiega in chiaro le 30 generazioni gratuite/mese, l'abbonamento Creator (9,90€/mese, ~150 generazioni + 2 sblocchi inclusi) e lo sblocco singolo (4€, 3€ da abbonato) — dichiarando esplicitamente cosa è già attivo (il prezzo di sblocco, mostrato anche nel pulsante e nel dialogo di conferma) e cosa non lo è ancora (il tetto mensile, l'abbonamento ricorrente).
+- Aggiunta una card di completezza profilo nella tab Crea miniatura: barra di avanzamento + checklist (URL canale, nicchia/tono, logo, almeno una foto nel Kit), con CTA verso il Profilo — si nasconde da sola quando il profilo è completo.
+
+**Decisioni prese:**
+- Contesto: il logo GDC reale non era disponibile in questa sessione (l'utente ce l'ha ma deve caricarlo da PC).
+- Decisione: usare un wordmark testuale curato come placeholder (monogramma "G" + testo), sostituibile in un secondo momento senza toccare il resto del markup.
+- Contesto: come mostrare gratis/pagamento senza emoji.
+- Decisione: pallino colorato invece di un'icona a forma libera (es. moneta) — più chiaro perché riusa un linguaggio visivo (il brand-dot) già presente nel tool, invece di richiedere un'interpretazione del pittogramma.
+- Da rivedere se: quando l'utente carica il file logo reale, sostituire il contenuto di `.brand-mark` (o passare a un `<img>`) in tutte le pagine che mostrano il brand a livello app (onboarding, Pannello Master, Motori AI).
+
+**File consegnati/modificati:**
+- `assets/icons.svg` (nuovo)
+- `assets/app.js` (helper `icon()`)
+- `assets/style.css` (classi `.icon*`, `.brand-mark`/`.brand-word`, `.cost-dot`, `.empty-icon` aggiornata)
+- `client.html` (icone, wordmark, tab Prezzi, card completezza profilo)
+- `clients.html`, `providers.html`, `onboarding.html` (icone, wordmark)
+- `assets/client-page.js` (icone nelle stringhe dinamiche, `costIcon()` riscritta, `renderProfileCompleteness()`, prezzo reale su pulsante/dialogo di sblocco)
+
+**Impatto su Vision/Pipeline:** nessuna modifica a Vision. La Pipeline non
+ha un nuovo step dedicato al design — il lavoro rientra negli step 4
+(Area di lavoro), 5 (Filigrana & sblocco, ora con prezzo visibile in UI) e
+8 (Pannello Master, wordmark); non ho aggiunto un blocco Pipeline separato
+per restare aderente al principio "uno step = un pezzo di funzionalità",
+non un contenitore per ogni sessione di polish.
+
+---
 
 ### [2026-09-08 20:15] Scelto il modello di monetizzazione: sblocco + tetto generazioni
 
