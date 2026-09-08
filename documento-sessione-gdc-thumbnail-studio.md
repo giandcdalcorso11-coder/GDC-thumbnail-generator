@@ -1,7 +1,7 @@
 # Documento di Sessione — GDC Thumbnail Studio
 
-**Versione:** 6
-**Ultimo aggiornamento:** [2026-09-08 23:45]
+**Versione:** 7
+**Ultimo aggiornamento:** [2026-09-09 00:20]
 
 ## Vision
 
@@ -59,21 +59,32 @@ modo mirato in ogni sezione per correggere.
 
 **Stato:** completato
 
-**Obiettivo:** login/signup funzionante, con creazione o rivendicazione di
-un profilo cliente e redirect automatico alla propria area di lavoro.
+**Obiettivo:** una landing page pubblica di presentazione con login/signup
+integrati come unico punto di ingresso, poi creazione o rivendicazione di
+un profilo cliente e redirect automatico alla propria area di lavoro (o al
+Pannello Master, se l'account è quello del titolare).
 
 **Decisioni progettuali:** self-signup lasciato aperto a chiunque abbia il
-link (stessa protezione della webapp GDC principale: auth + RLS, non
-isolamento dati) — accettato consapevolmente come limitazione temporanea,
-da rivedere quando il tool avrà utenti reali.
+link — non più un problema di isolamento dati (risolto l'8 settembre con
+la RLS reale, vedi Step 8), resta solo una scelta di prodotto per ora
+(chiunque può crearsi un profilo cliente). **[8-9 set 2026, notte]**
+`index.html` non è più un redirect immediato ma la landing page vera e
+propria: header, hero con il pitch del prodotto e i punti chiave, e la
+card di login/registrazione posizionata in alto nella hero (non in una
+pagina separata). `login.html` è stato eliminato — la sua logica è
+confluita in `index.html`, che resta l'unico ingresso sia per il titolare
+sia per i clienti (il redirect post-login a `onboarding.html`/
+`clients.html` distingue i due casi).
 
-**Criterio di completamento:** login/signup operativi, `onboarding.html`
-individua un profilo esistente per l'utente o ne propone la creazione/
-rivendicazione, redirect a `client.html?id=…` funzionante.
+**Criterio di completamento:** login/signup operativi dalla landing page,
+`onboarding.html` individua un profilo esistente per l'utente o ne
+propone la creazione/rivendicazione, redirect a `client.html?id=…`
+(cliente) o `clients.html` (Master) funzionante.
 
 **Note (cronologia dello step):**
 - [2026-09-05] Creato `login.html` (login/signup), redirect iniziale a `clients.html`.
 - [2026-09-07] Creato `onboarding.html` (crea/rivendica profilo via `owner_user_id`); redirect da login/index cambiato da `clients.html` a `onboarding.html`.
+- [2026-09-08, notte] `index.html` diventa una vera landing page (presentazione + login/signup integrati in alto); `login.html` eliminato, logica confluita in `index.html`. Eliminato anche il profilo di prova "Giuseppe Castagna" per lasciare il tool pulito prima di un test reale.
 
 ### Step 2 — Schema dati & Storage (Supabase dedicato)
 
@@ -298,6 +309,33 @@ in `thumb_gallery_images` con `source='auto'`.
 - [2026-09-07] **Bug 4 — non risolto: YouTube blocca il download.** Sintomo: ogni download `yt-dlp` fallisce con `Sign in to confirm you're not a bot`, pur risolvendo correttamente canale (`UCirnRRX1fQkWGjFKUNYNM6g`) e feed RSS (3 video trovati). Causa: blocco anti-bot di YouTube sugli IP dei runner GitHub Actions — non un bug nel nostro codice. Fix applicato: nessuno che funzioni — tentato `--extractor-args youtube:player_client=android` (workaround comunitario noto), **non ha risolto** (stesso errore su tutti i 9 tentativi). Fix rimasto ma non implementato: autenticazione via cookie di una sessione YouTube reale (da esportare dal browser, salvare come secret, rinnovare periodicamente — più fragile e con implicazioni di sicurezza). Deprioritizzato dopo la decisione dell'8 settembre: il caricamento manuale in Kit/Galleria resta la via consigliata.
 
 ## Storico sessioni
+
+### [2026-09-09 00:20] Landing page pubblica su index.html, login unificato, pulizia profilo di prova
+
+**Riepilogo:** L'utente ha notato che non esiste un link separato per la "piattaforma clienti" (è lo stesso login di sempre) e ha chiesto di trasformare `index.html` — prima un semplice redirect — in una vera landing page di presentazione con una sezione di login/registrazione in alto, utilizzabile sia dal titolare che dai clienti. Contestualmente ha chiesto di eliminare il profilo di prova "Giuseppe Castagna" per iniziare un test pulito con una sua mail secondaria.
+
+**Cosa è stato fatto:**
+- `index.html` riscritto da zero: header con logo, hero con pitch del prodotto ("Miniature YouTube coerenti con il tuo volto, generate con l'AI") e 4 punti chiave, card di login/registrazione posizionata in alto nella hero (non su una pagina a parte), sezione "Come funziona" con le 6 fasi reali del workflow (Galleria volto, Script & Analisi, Genera proposte, Editor, Sblocco trasparente, Motori a scelta).
+- `login.html` eliminato: la sua logica (login/signup via Supabase Auth, toggle tra le due modalità) è confluita in `index.html`, che ora è l'unico punto di ingresso per titolare e clienti — dopo il login il redirect a `onboarding.html` (che già distingue Master da cliente) resta invariato.
+- Aggiornati tutti i riferimenti a `login.html` in `assets/app.js` (`requireAuth()`, `sessionExpired()`, `logout()`) verso `index.html`; aggiornato `README.md`.
+- Eliminato il profilo di prova "Giuseppe Castagna" da `thumb_clients` (cascata su 5 video, 1 script, 4 capture job collegati — nessun file nello storage bucket era presente per questo profilo, verificato prima di procedere). Il tool risulta ora senza alcun cliente, pronto per un test pulito.
+
+**Decisioni prese:**
+- Contesto: dove posizionare login/registrazione sulla nuova landing page.
+- Decisione: card di accesso "in alto", dentro la hero stessa, non dietro un click — così chi arriva sul link può accedere o registrarsi subito, vedendo comunque la presentazione del prodotto.
+- Contesto: se mantenere `login.html` come pagina separata o unificarla.
+- Decisione: eliminarla ed unificare tutto in `index.html`, un solo punto di ingresso invece di due pagine con logica quasi identica.
+
+**File consegnati/modificati:**
+- `index.html` (riscritto)
+- `login.html` (eliminato)
+- `assets/app.js` (redirect da 'login.html' a 'index.html')
+- `README.md` (struttura pagine aggiornata)
+- Database: eliminato il profilo di prova "Giuseppe Castagna" e le righe collegate
+
+**Impatto su Vision/Pipeline:** aggiornato lo Step 1 (Onboarding & Autenticazione) — vedi Pipeline per il dettaglio completo.
+
+---
 
 ### [2026-09-08 23:45] Tab "Guida modelli" con ricerca sui motori collegabili
 
