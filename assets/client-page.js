@@ -1,4 +1,4 @@
-/* GDC Thumbnail Studio — logica pagina cliente (Canale/Video, Galleria, Script,
+/* GDC Thumbnail Generator — logica pagina cliente (Canale/Video, Galleria, Script,
    Genera, Editor, Proposte). Nessun framework: stato in variabili globali. */
 
 if (!requireAuth()) { /* redirect già eseguito da requireAuth() */ }

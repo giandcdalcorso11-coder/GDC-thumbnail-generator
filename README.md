@@ -1,4 +1,4 @@
-# GDC Thumbnail Studio
+# GDC Thumbnail Generator
 
 Tool per la generazione (semi-)automatica di miniature YouTube: galleria del
 volto del creator con pose/espressioni, analisi AI dello script del video,

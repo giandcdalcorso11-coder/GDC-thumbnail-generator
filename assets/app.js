@@ -1,4 +1,4 @@
-/* GDC Thumbnail Studio — config & helper condivisi (nessun build step, vanilla JS) */
+/* GDC Thumbnail Generator — config & helper condivisi (nessun build step, vanilla JS) */
 
 // Progetto Supabase DEDICATO a questo tool — separato dal workspace GDC
 // principale (nessuna tabella, utente o dato in comune).
@@ -247,7 +247,7 @@ async function drawWatermark(ctx, w, h){
       return;
     } catch(e) { /* fallback su testo qui sotto */ }
   }
-  const text = s?.watermark_text || 'GDC Thumbnail Studio';
+  const text = s?.watermark_text || 'GDC Thumbnail Generator';
   const fontSize = Math.round(h * 0.045);
   ctx.font = `700 ${fontSize}px Jost, sans-serif`;
   const metrics = ctx.measureText(text);
