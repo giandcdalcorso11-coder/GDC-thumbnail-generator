@@ -1,7 +1,7 @@
 # Documento di Sessione — GDC Thumbnail Studio
 
-**Versione:** 3
-**Ultimo aggiornamento:** [2026-09-08 21:40]
+**Versione:** 4
+**Ultimo aggiornamento:** [2026-09-08 22:20]
 
 ## Vision
 
@@ -136,7 +136,13 @@ apertura automatica dello step corrispondente ai dati reali già presenti.
 incollato** — il video nuovo non è ancora su YouTube, quindi non ha senso
 un URL da analizzare in questo step (vedi Step 6 per l'analisi da URL,
 spostata nel Kit). L'editor compone la miniatura su canvas 1280×720 con
-livelli (testo, forme, freccia, logo).
+livelli (testo, forme, freccia, logo). **Formato di generazione (8 set
+2026):** lo step Genera non è più vincolato al 16:9 YouTube — preset
+piattaforma selezionabili con pulsanti (etichette testuali, mai loghi
+social veri) per YouTube 1280×720, Shorts/TikTok/Reels 1080×1920,
+Instagram post 1080×1350, Facebook/LinkedIn 1200×630, Pinterest
+1000×1500; ogni motore AI riceve width/height reali e li traduce nel
+proprio formato.
 
 **Criterio di completamento:** dal video selezionato si arriva a una
 proposta salvata in `thumb_proposals`, passando per tutti gli step
@@ -147,6 +153,7 @@ intermedi senza vicoli ciechi.
 - [2026-09-07] Aggiunta card "Dal tuo kit permanente" nello step Galleria volto: riuso con un tocco delle foto già presenti nel Kit, senza ricaricarle.
 - [2026-09-07] Aggiunto pulsante "✏️ Modifica con AI" su ogni foto di galleria/kit: overlay con istruzione testuale, motore di modifica selezionabile, risultato sostituibile o salvabile come nuova immagine.
 - [2026-09-08] **Decisione:** rimossa dallo step Script la possibilità di analizzare un URL YouTube al posto dello script — capacità spostata nel Kit permanente (Step 6). Vedi "Decisioni prese" della sessione dell'8 settembre.
+- [2026-09-08 22:20] Aggiunti preset formato/piattaforma nello step Genera, e corretto un bug per cui 3 motori su 4 ignoravano il formato scelto. Vedi Storico sessioni.
 
 ### Step 5 — Filigrana & sblocco a pagamento
 
@@ -260,6 +267,67 @@ in `thumb_gallery_images` con `source='auto'`.
 - [2026-09-07] **Bug 4 — non risolto: YouTube blocca il download.** Sintomo: ogni download `yt-dlp` fallisce con `Sign in to confirm you're not a bot`, pur risolvendo correttamente canale (`UCirnRRX1fQkWGjFKUNYNM6g`) e feed RSS (3 video trovati). Causa: blocco anti-bot di YouTube sugli IP dei runner GitHub Actions — non un bug nel nostro codice. Fix applicato: nessuno che funzioni — tentato `--extractor-args youtube:player_client=android` (workaround comunitario noto), **non ha risolto** (stesso errore su tutti i 9 tentativi). Fix rimasto ma non implementato: autenticazione via cookie di una sessione YouTube reale (da esportare dal browser, salvare come secret, rinnovare periodicamente — più fragile e con implicazioni di sicurezza). Deprioritizzato dopo la decisione dell'8 settembre: il caricamento manuale in Kit/Galleria resta la via consigliata.
 
 ## Storico sessioni
+
+### [2026-09-08 22:20] Preset multi-piattaforma per la generazione (YouTube, Shorts, IG, FB/LinkedIn, Pinterest)
+
+**Riepilogo:** Il tool nasce per le miniature YouTube ma il cliente vuole
+ampliarlo agli altri formati social. Prima di implementare ho verificato il
+codice reale: **il formato scelto in fase di generazione veniva davvero
+applicato solo dal provider OpenAI** — Hugging Face, fal.ai e Replicate
+ricevevano il prompt ma ignoravano completamente `aspect_ratio`. Corretto
+questo insieme all'aggiunta dei preset piattaforma.
+
+**Cosa è stato fatto:**
+- `supabase/functions/generate-thumbnail/index.ts` (e il gemello a file
+  singolo `supabase/functions-standalone/generate-thumbnail.ts`): aggiunti
+  `width`/`height` a `GenerateRequest`. `runHuggingFace` ora passa
+  `parameters.width/height`, `runFal` passa `image_size:{width,height}`,
+  `runReplicate` passa `width/height` nell'input. `runOpenAI` (che accetta
+  solo 3 taglie fisse) usa una nuova funzione `nearestOpenAiSize()` che
+  sceglie la taglia più vicina al rapporto larghezza/altezza richiesto
+  invece della vecchia mappa fissa su 3 aspect ratio.
+- Funzione ridistribuita su Supabase (progetto `mjcnvpwjvwrucwjptgiu`,
+  `generate-thumbnail` ora in versione 3).
+- `client.html`: il vecchio `<select>` "Formato" (16:9/1:1/4:3) sostituito
+  da pulsanti preset piattaforma (`.format-presets`/`.format-preset`) —
+  YouTube 1280×720, Shorts/TikTok/Reels 1080×1920, Instagram post
+  1080×1350, Facebook/LinkedIn 1200×630, Pinterest 1000×1500. Etichette
+  testuali e icone outline generiche, **mai loghi social reali** (stesso
+  ragionamento sul rischio marchio già applicato ai loghi provider/GDC).
+- Aggiunta icona `icon-smartphone` in `assets/icons.svg` per il preset
+  verticale (Shorts/TikTok/Reels/Stories).
+- `assets/client-page.js`: nuovo stato `SELECTED_FORMAT` e funzione
+  `selectFormatPreset(btn)`; `runGenerate()` ora passa `width`/`height`
+  reali (non solo la stringa `aspect_ratio`) all'edge function e li salva
+  in `thumb_jobs.input`.
+
+**Decisioni prese:**
+- Contesto: come mostrare i preset piattaforma senza rischi di marchio.
+- Decisione: pulsanti con etichetta testuale + icona outline generica
+  (tv/smartphone/immagine/documento/tag), mai il logo reale del social.
+- Contesto: OpenAI gpt-image-1 accetta solo 3 taglie fisse, non può
+  generare esattamente 1080×1920 o 1000×1500.
+- Decisione: mappare sul rapporto più vicino (landscape/quadrato/verticale)
+  invece di bloccare il preset per quel provider — l'immagine generata
+  potrebbe avere un rapporto leggermente diverso da quello richiesto se il
+  provider attivo è OpenAI; accettabile perché resta comunque nella stessa
+  famiglia di orientamento (orizzontale/quadrato/verticale).
+
+**File consegnati/modificati:**
+- `supabase/functions/generate-thumbnail/index.ts`
+- `supabase/functions-standalone/generate-thumbnail.ts` (ridistribuito su Supabase)
+- `client.html` (preset piattaforma al posto del select Formato)
+- `assets/client-page.js` (`SELECTED_FORMAT`, `selectFormatPreset()`, `runGenerate()`)
+- `assets/icons.svg` (icona `icon-smartphone`)
+- `assets/style.css` (`.format-presets`/`.format-preset`)
+
+**Impatto su Vision/Pipeline:** nessuna modifica a Vision (resta valido
+"nato per YouTube, pensato per allargarsi"). Aggiornato lo Step 4 (Area di
+lavoro cliente) con la nuova capacità di formato; nessun nuovo step
+dedicato, perché il preset piattaforma è parte dello stesso step Genera
+già esistente.
+
+---
 
 ### [2026-09-08 21:40] Redesign visivo: icone, tab Prezzi trasparente, CTA profilo
 
