@@ -20,9 +20,9 @@ esistente, in tabelle nuove e isolate con prefisso `thumb_`.
 ## Struttura
 
 ```
-index.html            → redirect a clients.html
-login.html            → accesso (stesso account Supabase Auth del workspace GDC)
-clients.html          → elenco clienti (canali), stats, crea/modifica cliente
+index.html            → landing page pubblica + login/registrazione (unico ingresso)
+onboarding.html       → dopo il login: crea/riprende il proprio profilo (o va al Master)
+clients.html          → pannello Master (solo titolare): elenco clienti, prospetto per profilo
 providers.html        → gestione motore di generazione immagini (intercambiabile)
 client.html           → scheda cliente con le 6 fasi del workflow (tab):
                          Canale & Video · Galleria volto · Script & Analisi ·
@@ -60,8 +60,8 @@ Il progetto Supabase è lo stesso del workspace GDC (`pnzabwfsgkvejnrtrjcp`), gi
 configurato in `assets/app.js`. Le tabelle `thumb_*`, lo storage bucket
 `thumb-assets` e le Edge Function sono già creati/deployati.
 
-Per accedere in `login.html` usa un utente già esistente in Supabase Auth su
-questo progetto (stessa base utenti del workspace GDC principale).
+Accedi/registrati direttamente da `index.html` (la landing page pubblica),
+con un utente Supabase Auth di questo progetto.
 
 ### 2. Secret delle Edge Function
 

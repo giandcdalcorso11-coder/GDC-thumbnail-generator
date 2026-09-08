@@ -2,9 +2,178 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=onboarding.html">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GDC Thumbnail Studio</title>
-<script>window.location.replace('onboarding.html');</script>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .hero{ max-width:1080px; margin:0 auto; padding:44px 20px 8px; display:grid; grid-template-columns:1.15fr 0.85fr; gap:36px; align-items:start; }
+  @media (max-width:860px){ .hero{ grid-template-columns:1fr; padding-top:28px; } }
+  .hero-title{ font-size:30px; font-weight:800; letter-spacing:-.02em; line-height:1.18; margin-bottom:12px; }
+  .hero-sub{ font-size:14.5px; color:var(--grigio); line-height:1.55; margin-bottom:20px; max-width:480px; }
+  .hero-points{ display:flex; flex-direction:column; gap:11px; }
+  .hero-point{ display:flex; align-items:flex-start; gap:9px; font-size:13px; }
+  .hero-point .icon{ color:var(--maker); flex-shrink:0; margin-top:1px; }
+
+  .auth-card{ position:sticky; top:20px; }
+  .auth-title{ font-size:16.5px; font-weight:800; margin-bottom:2px; }
+  .auth-sub{ font-size:12px; color:var(--grigio); margin-bottom:14px; }
+  .auth-switch{ text-align:center; margin-top:12px; font-size:12.5px; color:var(--grigio); }
+  .auth-switch button{ background:none; border:none; color:var(--sabbia-dk); font-weight:700; cursor:pointer; font-family:'Jost',sans-serif; font-size:inherit; text-decoration:underline; }
+
+  .features{ max-width:1080px; margin:0 auto; padding:36px 20px 60px; }
+  .feature-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:14px; }
+  @media (max-width:760px){ .feature-grid{ grid-template-columns:1fr 1fr; } }
+  @media (max-width:520px){ .feature-grid{ grid-template-columns:1fr; } }
+  .feature-card{ background:var(--bianco); border:1.5px solid var(--border); border-radius:var(--radius); padding:16px; }
+  .feature-card .icon{ width:22px; height:22px; color:var(--sabbia-dk); margin-bottom:10px; }
+  .feature-card b{ display:block; font-size:13.5px; margin-bottom:4px; }
+  .feature-card p{ font-size:12px; color:var(--grigio); line-height:1.5; }
+
+  .landing-footer{ text-align:center; padding:20px; font-size:11px; color:var(--grigio-lt); }
+</style>
 </head>
-<body></body>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left"><div class="brand"><img class="brand-logo" src="assets/logo-gdc.svg" alt="GDC"><span class="brand-word">Thumbnail Studio</span></div></div>
+</div>
+
+<div class="hero">
+  <div>
+    <div class="hero-title">Miniature YouTube coerenti con il tuo volto, generate con l'AI.</div>
+    <p class="hero-sub">Carica qualche foto del tuo volto una volta sola: da lì generi miniature nuove per ogni video mantenendo sempre la stessa faccia, con il motore AI che preferisci — gratis o a pagamento, la scelta resta tua.</p>
+    <div class="hero-points">
+      <div class="hero-point"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-check-circle"></use></svg> Coerenza del volto tra tutte le miniature, non un semplice filtro</div>
+      <div class="hero-point"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-bot"></use></svg> Motori AI intercambiabili — inizi gratis, passi a un motore a pagamento quando vuoi</div>
+      <div class="hero-point"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-smartphone"></use></svg> Formati pronti per YouTube, Shorts, Instagram, TikTok e altri social</div>
+      <div class="hero-point"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-tag"></use></svg> Prezzi trasparenti, nessun costo nascosto</div>
+    </div>
+  </div>
+
+  <div class="card auth-card">
+    <div class="auth-title" id="modeSub">Accedi al tuo account</div>
+    <div class="auth-sub">Titolare GDC o cliente: si entra tutti da qui.</div>
+    <div id="loginError" class="error-banner hidden mb-8"></div>
+    <div id="loginOk" class="ok-banner hidden mb-8"></div>
+    <form id="authForm">
+      <div class="field">
+        <label class="lbl" for="email">Email</label>
+        <input class="inp" type="email" id="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label class="lbl" for="password">Password</label>
+        <input class="inp" type="password" id="password" required autocomplete="current-password" minlength="6">
+      </div>
+      <button class="btn btn-p btn-block" type="submit" id="authBtn">Accedi</button>
+    </form>
+    <div class="auth-switch">
+      <span id="switchPrompt">Primo accesso?</span>
+      <button type="button" id="switchBtn" onclick="toggleMode()">Crea un account</button>
+    </div>
+  </div>
+</div>
+
+<div class="features">
+  <div class="section-lbl">Come funziona</div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-image"></use></svg>
+      <b>Galleria volto</b>
+      <p>Carichi qualche foto (o le estrai da video già pubblicati): è la base di coerenza per ogni miniatura futura.</p>
+    </div>
+    <div class="feature-card">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg>
+      <b>Script &amp; Analisi</b>
+      <p>Incolli lo script del video, l'AI suggerisce idee di scena coerenti con tono e stile del tuo canale.</p>
+    </div>
+    <div class="feature-card">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg>
+      <b>Genera proposte</b>
+      <p>Scegli il motore AI e il formato (YouTube, Shorts, Instagram...): ottieni più proposte tra cui scegliere.</p>
+    </div>
+    <div class="feature-card">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-pencil"></use></svg>
+      <b>Editor con livelli</b>
+      <p>Aggiusti testo, forme, frecce e logo direttamente sulla proposta scelta, senza uscire dal tool.</p>
+    </div>
+    <div class="feature-card">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-unlock"></use></svg>
+      <b>Sblocco trasparente</b>
+      <p>Generi e modifichi sempre gratis; paghi solo per togliere la filigrana dalla miniatura finita — prezzo sempre visibile.</p>
+    </div>
+    <div class="feature-card">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-bot"></use></svg>
+      <b>Motori a scelta</b>
+      <p>Hugging Face, fal.ai, Replicate, OpenAI, Anthropic, Google Gemini — cambi motore con un clic, in ogni fase.</p>
+    </div>
+  </div>
+</div>
+
+<div class="landing-footer">GDC Thumbnail Studio</div>
+
+<script src="assets/app.js"></script>
+<script>
+if (getToken()) window.location.href = 'onboarding.html';
+
+let MODE = 'login'; // 'login' | 'signup'
+
+function toggleMode(){
+  MODE = MODE === 'login' ? 'signup' : 'login';
+  document.getElementById('authBtn').textContent = MODE === 'login' ? 'Accedi' : 'Crea account';
+  document.getElementById('modeSub').textContent = MODE === 'login' ? 'Accedi al tuo account' : 'Crea il tuo account';
+  document.getElementById('switchPrompt').textContent = MODE === 'login' ? 'Primo accesso?' : 'Hai già un account?';
+  document.getElementById('switchBtn').textContent = MODE === 'login' ? 'Crea un account' : 'Accedi';
+  document.getElementById('loginError').classList.add('hidden');
+  document.getElementById('loginOk').classList.add('hidden');
+}
+
+document.getElementById('authForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('authBtn');
+  const errEl = document.getElementById('loginError');
+  const okEl = document.getElementById('loginOk');
+  errEl.classList.add('hidden'); okEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = MODE === 'login' ? 'Accesso in corso…' : 'Creazione account…';
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  try {
+    if (MODE === 'login') {
+      const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error_description || data.msg || 'Credenziali non valide');
+      setSession(data);
+      window.location.href = 'onboarding.html';
+    } else {
+      const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error_description || data.msg || 'Impossibile creare l\'account');
+      if (data.access_token) {
+        setSession(data);
+        window.location.href = 'onboarding.html';
+      } else {
+        okEl.textContent = 'Account creato — controlla la tua email per confermarla, poi accedi.';
+        okEl.classList.remove('hidden');
+        toggleMode();
+      }
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = MODE === 'login' ? 'Accedi' : 'Crea account';
+  }
+});
+</script>
+</body>
 </html>

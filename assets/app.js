@@ -55,7 +55,7 @@ function clearSession(){
 }
 
 function requireAuth(){
-  if (!getToken()) { window.location.href = 'login.html'; return false; }
+  if (!getToken()) { window.location.href = 'index.html'; return false; }
   return true;
 }
 
@@ -84,7 +84,7 @@ function goBack(fallbackUrl){
 function sessionExpired(){
   clearSession();
   toast('Sessione scaduta, effettua di nuovo il login', 'err');
-  setTimeout(() => window.location.href = 'login.html', 1200);
+  setTimeout(() => window.location.href = 'index.html', 1200);
 }
 
 async function logout(){
@@ -95,7 +95,7 @@ async function logout(){
     });
   } catch(e) { /* ignora */ }
   clearSession();
-  window.location.href = 'login.html';
+  window.location.href = 'index.html';
 }
 
 // ── POSTGREST (tabelle thumb_*) ─────────────────────────────────────────
