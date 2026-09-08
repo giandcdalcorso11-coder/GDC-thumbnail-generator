@@ -28,8 +28,27 @@ interface GenerateRequest {
   prompt: string;
   negative_prompt?: string;
   reference_image_urls?: string[];
-  aspect_ratio?: string; // es. "16:9"
+  aspect_ratio?: string; // es. "16:9" — usato solo come fallback se width/height mancano
+  width?: number; // px richiesti (preset piattaforma, es. 1280 per YouTube)
+  height?: number; // px richiesti (preset piattaforma, es. 720 per YouTube)
   seed?: number;
+}
+
+// I preset piattaforma nel frontend mandano width/height reali in px. Ogni
+// provider li traduce nel proprio formato: HF/Replicate vogliono px diretti,
+// fal.ai vuole {width,height} dentro image_size, OpenAI (gpt-image-1) accetta
+// solo 3 taglie fisse quindi va scelta quella più vicina al rapporto richiesto.
+function nearestOpenAiSize(width?: number, height?: number, aspectRatio?: string): string {
+  let ratio: number | undefined;
+  if (width && height) ratio = width / height;
+  else if (aspectRatio) {
+    const [w, h] = aspectRatio.split(":").map(Number);
+    if (w && h) ratio = w / h;
+  }
+  if (ratio === undefined) return "1536x1024";
+  if (ratio > 1.15) return "1536x1024"; // landscape
+  if (ratio < 0.87) return "1024x1536"; // portrait/verticale
+  return "1024x1024"; // quadrato
 }
 
 interface ProviderResult {
@@ -71,7 +90,10 @@ async function runHuggingFace(req: GenerateRequest): Promise<ProviderResult> {
     },
     body: JSON.stringify({
       inputs: req.prompt,
-      parameters: { negative_prompt: req.negative_prompt },
+      parameters: {
+        negative_prompt: req.negative_prompt,
+        ...(req.width && req.height ? { width: req.width, height: req.height } : {}),
+      },
     }),
   });
 
@@ -112,6 +134,7 @@ async function runFal(req: GenerateRequest): Promise<ProviderResult> {
     prompt: req.prompt,
     negative_prompt: req.negative_prompt,
     image_url: req.reference_image_urls?.[0],
+    ...(req.width && req.height ? { image_size: { width: req.width, height: req.height } } : {}),
     ...(req.provider_config?.extra_params as Record<string, unknown> | undefined),
   };
 
@@ -143,6 +166,7 @@ async function runReplicate(req: GenerateRequest): Promise<ProviderResult> {
     prompt: req.prompt,
     negative_prompt: req.negative_prompt,
     image: req.reference_image_urls?.[0],
+    ...(req.width && req.height ? { width: req.width, height: req.height } : {}),
     ...(req.provider_config?.extra_params as Record<string, unknown> | undefined),
   };
 
@@ -187,8 +211,7 @@ async function runOpenAI(req: GenerateRequest): Promise<ProviderResult> {
     return { ok: false, error: `Chiave OpenAI non configurata. Incollala in Impostazioni → Motori AI, oppure imposta il secret '${secretName}' — crea una chiave su platform.openai.com/api-keys.` };
   }
   const model = (req.provider_config?.model as string) || "gpt-image-1";
-  const sizeMap: Record<string, string> = { "1:1": "1024x1024", "16:9": "1536x1024", "4:3": "1536x1024" };
-  const size = sizeMap[req.aspect_ratio || "16:9"] || "1536x1024";
+  const size = nearestOpenAiSize(req.width, req.height, req.aspect_ratio);
 
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",

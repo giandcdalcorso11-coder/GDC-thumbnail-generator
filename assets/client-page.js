@@ -621,6 +621,13 @@ function toggleRef(id){
   renderGenRefGrid();
 }
 
+let SELECTED_FORMAT = { w: 1280, h: 720, ratio: '16:9' };
+function selectFormatPreset(btn){
+  document.querySelectorAll('#genFormatPresets .format-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  SELECTED_FORMAT = { w: Number(btn.dataset.w), h: Number(btn.dataset.h), ratio: btn.dataset.ratio };
+}
+
 async function runGenerate(){
   if (!SELECTED_VIDEO_ID) { toast('Seleziona un video', 'err'); return; }
   if (!ACTIVE_PROVIDER) { toast('Nessun provider attivo', 'err'); return; }
@@ -635,7 +642,7 @@ async function runGenerate(){
     job = (await sbInsert('thumb_jobs', {
       client_id: CLIENT_ID, video_id: SELECTED_VIDEO_ID, provider_id: ACTIVE_PROVIDER.id,
       status: 'running',
-      input: { prompt, negative_prompt: document.getElementById('genNegPrompt').value.trim(), aspect_ratio: document.getElementById('genAspect').value, reference_ids: [...SELECTED_REF_IDS] },
+      input: { prompt, negative_prompt: document.getElementById('genNegPrompt').value.trim(), aspect_ratio: SELECTED_FORMAT.ratio, width: SELECTED_FORMAT.w, height: SELECTED_FORMAT.h, reference_ids: [...SELECTED_REF_IDS] },
     }))[0];
     await sbUpdate('thumb_videos', `id=eq.${SELECTED_VIDEO_ID}`, { status: 'generating' });
 
@@ -647,7 +654,9 @@ async function runGenerate(){
       prompt,
       negative_prompt: document.getElementById('genNegPrompt').value.trim(),
       reference_image_urls: refUrls,
-      aspect_ratio: document.getElementById('genAspect').value,
+      aspect_ratio: SELECTED_FORMAT.ratio,
+      width: SELECTED_FORMAT.w,
+      height: SELECTED_FORMAT.h,
     });
 
     if (!ok) throw new Error(data.error || 'Generazione fallita');

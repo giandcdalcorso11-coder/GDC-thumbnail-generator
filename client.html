@@ -233,13 +233,30 @@
             <label class="lbl">Prompt negativo (opzionale)</label>
             <input class="inp" id="genNegPrompt" value="blurry, low quality, distorted face, extra limbs, watermark, text">
           </div>
-          <div class="field" style="max-width:220px;">
-            <label class="lbl">Formato</label>
-            <select class="select" id="genAspect">
-              <option value="16:9">16:9 — standard YouTube</option>
-              <option value="1:1">1:1 — quadrato</option>
-              <option value="4:3">4:3</option>
-            </select>
+          <div class="field">
+            <label class="lbl">Formato / piattaforma</label>
+            <div class="format-presets" id="genFormatPresets">
+              <button type="button" class="format-preset active" data-w="1280" data-h="720" data-ratio="16:9" onclick="selectFormatPreset(this)">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-tv"></use></svg>
+                <span>YouTube</span><small>1280×720</small>
+              </button>
+              <button type="button" class="format-preset" data-w="1080" data-h="1920" data-ratio="9:16" onclick="selectFormatPreset(this)">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-smartphone"></use></svg>
+                <span>Shorts / TikTok / Reels</span><small>1080×1920</small>
+              </button>
+              <button type="button" class="format-preset" data-w="1080" data-h="1350" data-ratio="4:5" onclick="selectFormatPreset(this)">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-image"></use></svg>
+                <span>Instagram post</span><small>1080×1350</small>
+              </button>
+              <button type="button" class="format-preset" data-w="1200" data-h="630" data-ratio="1.91:1" onclick="selectFormatPreset(this)">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg>
+                <span>Facebook / LinkedIn</span><small>1200×630</small>
+              </button>
+              <button type="button" class="format-preset" data-w="1000" data-h="1500" data-ratio="2:3" onclick="selectFormatPreset(this)">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-tag"></use></svg>
+                <span>Pinterest</span><small>1000×1500</small>
+              </button>
+            </div>
           </div>
           <div class="section-lbl mt-12">Immagini di riferimento volto (dalla galleria approvata)</div>
           <div id="genRefGrid" class="gallery-grid mb-8"></div>
