@@ -1,7 +1,7 @@
-# Documento di Sessione — GDC Thumbnail Studio
+# Documento di Sessione — GDC Thumbnail Generator
 
-**Versione:** 7
-**Ultimo aggiornamento:** [2026-09-09 00:20]
+**Versione:** 8
+**Ultimo aggiornamento:** [2026-09-09 00:45]
 
 ## Vision
 
@@ -309,6 +309,30 @@ in `thumb_gallery_images` con `source='auto'`.
 - [2026-09-07] **Bug 4 — non risolto: YouTube blocca il download.** Sintomo: ogni download `yt-dlp` fallisce con `Sign in to confirm you're not a bot`, pur risolvendo correttamente canale (`UCirnRRX1fQkWGjFKUNYNM6g`) e feed RSS (3 video trovati). Causa: blocco anti-bot di YouTube sugli IP dei runner GitHub Actions — non un bug nel nostro codice. Fix applicato: nessuno che funzioni — tentato `--extractor-args youtube:player_client=android` (workaround comunitario noto), **non ha risolto** (stesso errore su tutti i 9 tentativi). Fix rimasto ma non implementato: autenticazione via cookie di una sessione YouTube reale (da esportare dal browser, salvare come secret, rinnovare periodicamente — più fragile e con implicazioni di sicurezza). Deprioritizzato dopo la decisione dell'8 settembre: il caricamento manuale in Kit/Galleria resta la via consigliata.
 
 ## Storico sessioni
+
+### [2026-09-09 00:45] Rinomina prodotto in "Thumbnail Generator", rifinitura landing page
+
+**Riepilogo:** Primo giro di feedback dell'utente sulla landing page appena costruita: rinominare il prodotto da "Thumbnail Studio" a "Thumbnail Generator", ingrandire il logo, invertire la gerarchia delle azioni nella card di accesso (Crea account come CTA dominante, non Accedi) e curare meglio spazi/gerarchia visiva.
+
+**Cosa è stato fatto:**
+- Rinominato "GDC Thumbnail Studio" → "GDC Thumbnail Generator" in tutti i punti visibili: titoli pagina, topbar, footer della landing, placeholder del testo filigrana in `providers.html`, valore di default e riga già salvata in `thumb_app_settings.watermark_text` sul progetto Supabase, `README.md`, commenti di intestazione in `app.js`/`client-page.js`. Rinominato anche questo documento di sessione (file e titolo).
+- Logo (`.brand-logo`, condiviso) ingrandito da 24px a 30px di altezza — l'utente lo trovava poco leggibile alla dimensione precedente.
+- `index.html`: la card di accesso ora parte in modalità "Crea account" invece di "Accedi" (di default, non al click) — motivazione esplicita dell'utente: "idealmente tutti saranno al primo accesso". Pulsante ingrandito con una nuova classe riutilizzabile `.btn-lg`; card con bordo/ombra per distinguerla come azione principale della pagina. La sezione "Come funziona" sotto è stata appiattita (card senza bordo, icone più tenui) per arretrare visivamente rispetto alla card di accesso — non più due blocchi di pari peso.
+- Spaziature della landing rifinite (hero, card di accesso, sezione features).
+
+**Decisioni prese:**
+- Contesto: quale azione mostrare come principale nella card di accesso.
+- Decisione: "Crea account" di default, "Accedi" relegato a link secondario sotto — segue il ragionamento dell'utente che la maggior parte del traffico sarà primo accesso, non utenti di ritorno.
+
+**File consegnati/modificati:**
+- `index.html`, `assets/style.css` (`.brand-logo`, nuova `.btn-lg`)
+- `client.html`, `clients.html`, `onboarding.html`, `providers.html`, `README.md`, `assets/app.js`, `assets/client-page.js` (rinomina testo)
+- Database: `thumb_app_settings.watermark_text` (valore e default di colonna) aggiornato
+- `documento-sessione-gdc-thumbnail-studio.md` → rinominato in `documento-sessione-gdc-thumbnail-generator.md`
+
+**Impatto su Vision/Pipeline:** nessuna modifica a Vision/Pipeline — è un affinamento della card di accesso già coperta dallo Step 1, non un nuovo step.
+
+---
 
 ### [2026-09-09 00:20] Landing page pubblica su index.html, login unificato, pulizia profilo di prova
 
