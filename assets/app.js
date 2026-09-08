@@ -278,6 +278,11 @@ async function callEdgeFunction(name, body){
   return { ok: res.ok && data.ok !== false, status: res.status, data };
 }
 
+// ── ICONE (sprite SVG condiviso in assets/icons.svg, niente emoji in UI) ──
+function icon(name, cls = ''){
+  return `<svg class="icon ${cls}" aria-hidden="true" focusable="false"><use href="assets/icons.svg#icon-${name}"></use></svg>`;
+}
+
 // ── UI HELPERS ────────────────────────────────────────────────────────────
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));

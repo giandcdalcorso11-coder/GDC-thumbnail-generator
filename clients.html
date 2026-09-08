@@ -10,11 +10,11 @@
 
 <div class="topbar">
   <div class="topbar-left">
-    <button class="btn btn-gh btn-sm" onclick="goBack('onboarding.html')">← Indietro</button>
-    <div class="brand"><span class="brand-dot"></span> Pannello Master</div>
+    <button class="btn btn-gh btn-sm" onclick="goBack('onboarding.html')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-arrow-left"></use></svg> Indietro</button>
+    <div class="brand"><span class="brand-mark">G</span><span class="brand-word">Pannello Master</span></div>
   </div>
   <div class="topbar-right">
-    <a class="btn btn-gh btn-sm" href="providers.html">⚙️ Motori AI</a>
+    <a class="btn btn-gh btn-sm" href="providers.html"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-settings"></use></svg> Motori AI</a>
     <span class="text-xs text-grigio" id="whoami"></span>
     <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
   </div>
@@ -42,14 +42,14 @@
   <div id="clientList" class="grid" style="grid-template-columns:1fr; gap:10px;"></div>
 </div>
 
-<button class="fab" title="Nuovo cliente" onclick="openClientSheet()">＋</button>
+<button class="fab" title="Nuovo cliente" onclick="openClientSheet()"><svg class="icon icon-lg" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg></button>
 
 <!-- SHEET: crea/modifica cliente -->
 <div class="overlay" id="clientOverlay" onclick="if(event.target===this) closeOverlay('clientOverlay')">
   <div class="sheet">
     <div class="sheet-header">
       <span class="sheet-title" id="clientSheetTitle">Nuovo cliente</span>
-      <button class="sheet-close" onclick="closeOverlay('clientOverlay')">✕</button>
+      <button class="sheet-close" onclick="closeOverlay('clientOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button>
     </div>
     <form id="clientForm">
       <input type="hidden" id="cf_id">
@@ -145,7 +145,7 @@ function renderClients(){
   const list = CLIENTS.filter(c => !q || c.name.toLowerCase().includes(q) || (c.niche||'').toLowerCase().includes(q));
   const el = document.getElementById('clientList');
   if (!list.length){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>Nessun cliente ancora. Aggiungine uno con il pulsante ＋</div>';
+    el.innerHTML = `<div class="empty"><div class="empty-icon">${icon('inbox')}</div>Nessun cliente ancora. Aggiungine uno con il pulsante +</div>`;
     return;
   }
   el.innerHTML = list.map(c => `
@@ -156,7 +156,7 @@ function renderClients(){
         <div class="client-meta">
           ${c.niche ? `<span class="tag tag-sabbia">${escapeHtml(c.niche)}</span>` : ''}
           <span class="tag ${captureModeTagClass(c.capture_mode)}">${captureModeLabel(c.capture_mode)}</span>
-          <span class="tag ${c.owner_user_id ? 'tag-maker' : 'tag-grigio'}">${c.owner_user_id ? '👤 Assegnato' : 'Non assegnato'}</span>
+          <span class="tag ${c.owner_user_id ? 'tag-maker' : 'tag-grigio'}">${c.owner_user_id ? icon('user','icon-sm') + ' Assegnato' : 'Non assegnato'}</span>
         </div>
       </div>
       <div class="client-stats">

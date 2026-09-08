@@ -43,6 +43,31 @@ async function init(){
   await Promise.all([loadVideos(), loadGallery(), loadProviders(), loadTextProviders(), loadEditProviders(), loadKit()]);
   loadCaptureJobs();
   initSettingsTab();
+  renderProfileCompleteness();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CTA "profilo completo" — nudge visivo per compilare il profilo prima di
+// generare, così le miniature hanno un riferimento volto/stile affidabile.
+// ─────────────────────────────────────────────────────────────────────────
+function renderProfileCompleteness(){
+  const card = document.getElementById('profileCompletenessCard');
+  if (!card || !CLIENT) return;
+  const checks = [
+    { label: 'URL canale', done: !!CLIENT.channel_url },
+    { label: 'Nicchia e tono', done: !!(CLIENT.niche && CLIENT.tone) },
+    { label: 'Logo caricato', done: !!CLIENT.logo_path },
+    { label: 'Almeno una foto nel Kit', done: (KIT_ASSETS || []).some(a => a.kind === 'image') },
+  ];
+  const done = checks.filter(c => c.done).length;
+  const pct = Math.round(done / checks.length * 100);
+  if (pct >= 100){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  document.getElementById('pcPercent').textContent = pct;
+  document.getElementById('pcBar').style.width = pct + '%';
+  document.getElementById('pcChecklist').innerHTML = checks.map(c => `
+    <span class="tag ${c.done ? 'tag-maker' : 'tag-grigio'}">${c.done ? icon('check','icon-sm') : icon('x','icon-sm')} ${c.label}</span>
+  `).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -150,7 +175,7 @@ async function loadVideos(){
 function renderVideoList(){
   const el = document.getElementById('videoList');
   if (!VIDEOS.length){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📺</div>Nessun video ancora. Importa dal canale o aggiungine uno manualmente.</div>';
+    el.innerHTML = `<div class="empty"><div class="empty-icon">${icon('tv')}</div>Nessun video ancora. Importa dal canale o aggiungine uno manualmente.</div>`;
     return;
   }
   el.innerHTML = VIDEOS.map(v => `
@@ -161,7 +186,7 @@ function renderVideoList(){
           <div class="flex gap-6 mt-8" style="flex-wrap:wrap;">
             <span class="tag tag-grigio">${STATUS_LABEL[v.status] || v.status}</span>
             ${v.published_at ? `<span class="text-xs text-grigio">${formatDate(v.published_at)}</span>` : ''}
-            ${v.url ? `<a class="text-xs" href="${escapeHtml(v.url)}" target="_blank" rel="noopener">Apri su YouTube ↗</a>` : ''}
+            ${v.url ? `<a class="text-xs" href="${escapeHtml(v.url)}" target="_blank" rel="noopener">Apri su YouTube ${icon('external-link','icon-sm')}</a>` : ''}
           </div>
         </div>
         <div class="flex gap-6">
@@ -250,7 +275,7 @@ function renderKitToGalleryGrid(){
     const c = document.getElementById(`ktg-${a.id}`);
     if (!c) return;
     const used = alreadyUsed.has(a.storage_path);
-    c.innerHTML = `<img src="${url}"><div class="kit-pick-add">${used ? '✓ già in galleria' : '＋ usa qui'}</div>`;
+    c.innerHTML = `<img src="${url}"><div class="kit-pick-add">${used ? icon('check') + ' già in galleria' : icon('plus') + ' usa qui'}</div>`;
     if (used) c.style.opacity = '.55';
   }));
 }
@@ -289,9 +314,9 @@ async function renderGallery(){
         <img src="${url}" loading="lazy" onclick="openImgDetail('${g.id}')">
         <span class="tag ${badgeClass} img-badge">${badgeLabel}</span>
         <div class="img-actions">
-          ${g.status !== 'approved' ? `<button class="btn btn-g" onclick="quickSetStatus('${g.id}','approved')">✓</button>` : ''}
-          ${g.status !== 'rejected' ? `<button class="btn btn-o" onclick="quickSetStatus('${g.id}','rejected')">✕</button>` : ''}
-          <button class="btn btn-s" onclick="event.stopPropagation();openImgEdit('gallery','${g.id}')">✏️</button>
+          ${g.status !== 'approved' ? `<button class="btn btn-g" onclick="quickSetStatus('${g.id}','approved')">${icon('check')}</button>` : ''}
+          ${g.status !== 'rejected' ? `<button class="btn btn-o" onclick="quickSetStatus('${g.id}','rejected')">${icon('x')}</button>` : ''}
+          <button class="btn btn-s" onclick="event.stopPropagation();openImgEdit('gallery','${g.id}')">${icon('pencil')}</button>
         </div>`;
     });
   }
@@ -464,7 +489,7 @@ async function analyzeScript(){
     errEl.textContent = e.message;
     errEl.classList.remove('hidden');
   } finally {
-    btn.disabled = false; btn.textContent = '🤖 Analizza con AI';
+    btn.disabled = false; btn.innerHTML = `${icon('bot','icon-sm')} Analizza con AI`;
   }
 }
 
@@ -496,12 +521,18 @@ async function loadProviders(){
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// SELETTORE MODELLO INLINE (pulsante + tendina in ogni step, con icona
-// 🆓/💰 per provider) — evita di dover uscire su providers.html solo per
-// cambiare motore o modello attivo.
+// SELETTORE MODELLO INLINE (pulsante + tendina in ogni step, con pallino
+// gratis/pagamento per provider) — evita di dover uscire su providers.html
+// solo per cambiare motore o modello attivo.
 // ─────────────────────────────────────────────────────────────────────────
 const FREE_PROVIDER_KINDS = new Set(['huggingface', 'manual', 'gemini']);
-function costIcon(kind){ return FREE_PROVIDER_KINDS.has(kind) ? '🆓' : '💰'; }
+// Pallino colorato (non un'icona a forma libera): gratis/pagamento è
+// un'informazione di stato, più chiara con un indicatore standard + testo
+// che con un pittogramma ambiguo.
+function costIcon(kind){
+  const free = FREE_PROVIDER_KINDS.has(kind);
+  return `<span class="cost-dot ${free ? 'free' : 'paid'}" title="${free ? 'Gratis' : 'A pagamento'}"></span>`;
+}
 
 const MODEL_PICKERS = {
   text: { table: 'thumb_text_providers', list: () => TEXT_PROVIDERS, active: () => ACTIVE_TEXT_PROVIDER, reload: loadTextProviders },
@@ -521,26 +552,26 @@ function renderModelPickerButton(kind){
   const btn = document.getElementById(MODEL_PICKER_IDS[kind] + 'Btn');
   if (!btn) return;
   const active = MODEL_PICKERS[kind].active();
-  btn.innerHTML = active ? `${costIcon(active.kind)} ${escapeHtml(active.name)} ▾` : `⚠️ Nessun motore attivo ▾`;
+  btn.innerHTML = active ? `${costIcon(active.kind)} ${escapeHtml(active.name)} ▾` : `Nessun motore attivo ▾`;
 }
 
 function renderModelPicker(kind){
   const cfg = MODEL_PICKERS[kind];
   const listEl = document.getElementById(MODEL_PICKER_IDS[kind] + 'List');
   const list = cfg.list();
-  const manageLink = '<a class="model-picker-manage" href="#" onclick="event.preventDefault();goToSettingsProviders();">⚙️ Gestisci / aggiungi provider</a>';
+  const manageLink = `<a class="model-picker-manage" href="#" onclick="event.preventDefault();goToSettingsProviders();">${icon('settings','icon-sm')} Gestisci / aggiungi provider</a>`;
   if (!list.length){
     listEl.innerHTML = '<div class="model-picker-empty">Nessun provider configurato.</div>' + manageLink;
     return;
   }
   listEl.innerHTML = list.map(p => `
     <div class="model-picker-row ${p.active ? 'active' : ''}" onclick="selectModel('${kind}','${p.id}')">
-      <span class="model-picker-cost" title="${FREE_PROVIDER_KINDS.has(p.kind) ? 'Gratuito' : 'A pagamento'}">${costIcon(p.kind)}</span>
+      <span class="model-picker-cost">${costIcon(p.kind)}</span>
       <span style="flex:1;min-width:0;">
         <div>${escapeHtml(p.name)}</div>
         ${p.config?.model ? `<div class="text-xs text-grigio">${escapeHtml(p.config.model)}</div>` : ''}
       </span>
-      ${p.active ? '<span class="text-xs">✓</span>' : ''}
+      ${p.active ? icon('check','icon-sm') : ''}
     </div>
   `).join('') + manageLink;
 }
@@ -636,7 +667,7 @@ async function runGenerate(){
     if (job) await sbUpdate('thumb_jobs', `id=eq.${job.id}`, { status: 'error', error_message: e.message }).catch(()=>{});
     toast('Errore generazione: ' + e.message, 'err');
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Genera miniatura';
+    btn.disabled = false; btn.innerHTML = `${icon('sparkles','icon-sm')} Genera miniatura`;
     loadJobsForVideo();
   }
 }
@@ -672,7 +703,7 @@ function renderJobsGrid(){
     const card = document.getElementById(`job-${j.id}`);
     if (!card) return;
     if (j.status === 'error'){
-      card.innerHTML = `<div class="empty text-xs" style="padding:14px;">⚠️ ${escapeHtml(j.error_message||'errore')}</div>`;
+      card.innerHTML = `<div class="empty text-xs" style="padding:14px;">${escapeHtml(j.error_message||'errore')}</div>`;
       return;
     }
     if (j.status !== 'done' || !j.output_image_path){
@@ -684,7 +715,7 @@ function renderJobsGrid(){
         <img src="${url}">
         <div class="img-actions">
           <button class="btn btn-p" onclick="useJobInEditor('${j.id}')">Editor</button>
-          <button class="btn btn-o" onclick="deleteJob('${j.id}')">✕</button>
+          <button class="btn btn-o" onclick="deleteJob('${j.id}')">${icon('x')}</button>
         </div>`;
     });
   });
@@ -778,12 +809,12 @@ function renderLayerList(){
   if (!LAYERS.length){ el.innerHTML = '<div class="text-xs text-grigio">Nessun elemento. Aggiungine uno sopra.</div>'; return; }
   el.innerHTML = LAYERS.map(l => `
     <div class="layer-row ${l.id===SELECTED_LAYER?'on':''}" onclick="selectLayer('${l.id}')">
-      <span style="flex:1;">${LAYER_ICON[l.type]} ${l.type === 'text' ? escapeHtml(l.text.slice(0,18)) : l.type}</span>
-      <button class="btn btn-gh btn-sm" style="padding:2px 8px;" onclick="event.stopPropagation();removeLayer('${l.id}')">✕</button>
+      <span style="flex:1;display:flex;align-items:center;gap:6px;">${LAYER_ICON[l.type]} ${l.type === 'text' ? escapeHtml(l.text.slice(0,18)) : l.type}</span>
+      <button class="btn btn-gh btn-sm" style="padding:2px 8px;" onclick="event.stopPropagation();removeLayer('${l.id}')">${icon('x','icon-sm')}</button>
     </div>
   `).join('');
 }
-const LAYER_ICON = { text:'🔤', rect:'▭', circle:'⬤', arrow:'➜', logo:'🏷️' };
+const LAYER_ICON = { text: icon('type','icon-sm'), rect: icon('square','icon-sm'), circle: icon('circle-mark','icon-sm'), arrow: icon('arrow-right','icon-sm'), logo: icon('tag','icon-sm') };
 
 function removeLayer(id){
   LAYERS = LAYERS.filter(l => l.id !== id);
@@ -973,19 +1004,19 @@ async function loadProposals(){
       card.innerHTML = `
         <img src="${displayUrl}">
         <span class="tag ${badgeClass} img-badge">${badgeLabel}</span>
-        ${!p.unlocked ? '<span class="tag tag-sabbia" style="position:absolute;top:6px;right:6px;">🔒 Filigrana</span>' : ''}
+        ${!p.unlocked ? `<span class="tag tag-sabbia" style="position:absolute;top:6px;right:6px;">${icon('lock','icon-sm')} Filigrana</span>` : ''}
         <div class="img-actions">
-          <button class="btn btn-g" onclick="setProposalStatus('${p.id}','approved')">✓</button>
-          <button class="btn btn-o" onclick="setProposalStatus('${p.id}','rejected')">✕</button>
-          ${!p.unlocked ? `<button class="btn btn-s" onclick="unlockProposal('${p.id}')" title="Placeholder: sblocca senza pagamento reale, in attesa del sistema di pagamento">🔓</button>` : ''}
-          <a class="btn btn-s" href="${displayUrl}" download="proposta.png">⬇</a>
+          <button class="btn btn-g" onclick="setProposalStatus('${p.id}','approved')">${icon('check')}</button>
+          <button class="btn btn-o" onclick="setProposalStatus('${p.id}','rejected')">${icon('x')}</button>
+          ${!p.unlocked ? `<button class="btn btn-s" onclick="unlockProposal('${p.id}')" title="Sblocca togliendo la filigrana — 4€ a miniatura, 3€ se hai l'abbonamento Creator">${icon('unlock')} 4€</button>` : ''}
+          <a class="btn btn-s" href="${displayUrl}" download="proposta.png">${icon('download')}</a>
         </div>`;
     }));
   }
 }
 
 async function unlockProposal(id){
-  if (!confirm('Sblocco manuale (placeholder): rimuove la filigrana da questa proposta senza un pagamento reale, finché non colleghiamo un sistema di pagamento. Continuare?')) return;
+  if (!confirm('Sblocco: 4€ a miniatura (3€ con l\'abbonamento Creator). Il pagamento vero non è ancora collegato — per ora lo sblocco è gratuito mentre testiamo il tool, ma il prezzo è quello reale che verrà applicato. Continuare?')) return;
   try { await sbUpdate('thumb_proposals', `id=eq.${id}`, { unlocked: true }); loadProposals(); }
   catch(e){ toast('Errore: ' + e.message, 'err'); }
 }
@@ -1034,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       CLIENT = (await sbUpdate('thumb_clients', `id=eq.${CLIENT_ID}`, payload))[0];
       renderClientHeader();
+      renderProfileCompleteness();
       toast('Profilo aggiornato', 'ok');
     } catch(err){ toast('Errore: ' + err.message, 'err'); }
   });
@@ -1083,7 +1115,7 @@ async function runKitChannelAnalysis(){
     errEl.textContent = e.message;
     errEl.classList.remove('hidden');
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Analizza con Gemini';
+    btn.disabled = false; btn.innerHTML = `${icon('sparkles','icon-sm')} Analizza con Gemini`;
   }
 }
 
@@ -1112,6 +1144,7 @@ async function loadKit(){
   KIT_ASSETS = await sbSelect('thumb_client_assets', `client_id=eq.${CLIENT_ID}&select=*&order=created_at.desc`);
   renderKit();
   renderKitToGalleryGrid();
+  renderProfileCompleteness();
 }
 
 function renderKit(){
@@ -1123,14 +1156,14 @@ function renderKit(){
     if (!card) return;
     if (a.kind === 'image' && a.storage_path){
       resolveImageUrl(a.storage_path).then(url => {
-        card.innerHTML = `<img src="${url}"><div class="kit-body"><span class="text-xs">${escapeHtml(a.title||'Foto')}</span></div><button class="btn btn-s btn-sm kit-edit" onclick="openImgEdit('kit','${a.id}')">✏️</button><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+        card.innerHTML = `<img src="${url}"><div class="kit-body"><span class="text-xs">${escapeHtml(a.title||'Foto')}</span></div><button class="btn btn-s btn-sm kit-edit" onclick="openImgEdit('kit','${a.id}')">${icon('pencil','icon-sm')}</button><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">${icon('x','icon-sm')}</button>`;
       });
     } else if (a.kind === 'document' && a.storage_path){
       resolveImageUrl(a.storage_path).then(url => {
-        card.innerHTML = `<div class="kit-body"><div style="font-size:22px;">📄</div><a class="text-xs" href="${url}" target="_blank" rel="noopener">${escapeHtml(a.title||'Documento')}</a></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+        card.innerHTML = `<div class="kit-body"><div style="opacity:.6;">${icon('file-text','icon-lg')}</div><a class="text-xs" href="${url}" target="_blank" rel="noopener">${escapeHtml(a.title||'Documento')}</a></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">${icon('x','icon-sm')}</button>`;
       });
     } else {
-      card.innerHTML = `<div class="kit-body"><span class="text-xs" style="font-weight:700;">📝 ${escapeHtml(a.title||'Nota')}</span><span class="text-xs text-grigio">${escapeHtml((a.note_text||'').slice(0,140))}</span></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">✕</button>`;
+      card.innerHTML = `<div class="kit-body"><span class="text-xs" style="font-weight:700;display:flex;align-items:center;gap:5px;">${icon('pencil','icon-sm')} ${escapeHtml(a.title||'Nota')}</span><span class="text-xs text-grigio">${escapeHtml((a.note_text||'').slice(0,140))}</span></div><button class="btn btn-o btn-sm kit-del" onclick="deleteKitAsset('${a.id}')">${icon('x','icon-sm')}</button>`;
     }
   });
 }
@@ -1236,7 +1269,7 @@ async function runImageEdit(){
     errEl.textContent = e.message;
     errEl.classList.remove('hidden');
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Genera modifica';
+    btn.disabled = false; btn.innerHTML = `${icon('sparkles','icon-sm')} Genera modifica`;
   }
 }
 
@@ -1300,11 +1333,11 @@ function renderSettingsSection(key){
           <div class="flex gap-6 mt-8" style="flex-wrap:wrap;">
             <span class="tag tag-grigio">${s.kinds[p.kind] || p.kind}</span>
             ${p.config?.model ? `<span class="tag tag-sabbia">${escapeHtml(p.config.model)}</span>` : ''}
-            <span class="tag ${free ? 'tag-maker' : 'tag-athlete'}">${free ? '🆓 Gratis' : '💰 A pagamento'}</span>
-            ${p.active ? '<span class="tag tag-maker">✓ Attivo</span>' : ''}
-            ${p.kind !== 'manual' ? (p.config?.api_key ? '<span class="tag tag-maker">🔑 Chiave impostata</span>' : '<span class="tag tag-life">⚠️ Chiave mancante</span>') : ''}
+            <span class="tag ${free ? 'tag-maker' : 'tag-athlete'}">${free ? 'Gratis' : 'A pagamento'}</span>
+            ${p.active ? `<span class="tag tag-maker">${icon('check','icon-sm')} Attivo</span>` : ''}
+            ${p.kind !== 'manual' ? (p.config?.api_key ? `<span class="tag tag-maker">${icon('key','icon-sm')} Chiave impostata</span>` : `<span class="tag tag-life">Chiave mancante</span>`) : ''}
           </div>
-          ${keyLink ? `<a class="text-xs" href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ↗</a>` : ''}
+          ${keyLink ? `<a class="text-xs" href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ${icon('external-link','icon-sm')}</a>` : ''}
         </div>
         <div class="flex gap-6" style="flex-direction:column;">
           ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateSettingsProvider('${key}','${p.id}')">Attiva</button>` : ''}
@@ -1322,7 +1355,7 @@ function fillSettingsKindSelect(target){
 
 function updateSettingsKeyLink(){
   const link = PROVIDER_KEY_LINKS[document.getElementById('sf_kind').value];
-  document.getElementById('sf_key_link').innerHTML = link ? `<a href="${link.url}" target="_blank" rel="noopener">${link.label} ↗</a>` : '';
+  document.getElementById('sf_key_link').innerHTML = link ? `<a href="${link.url}" target="_blank" rel="noopener">${link.label} ${icon('external-link','icon-sm')}</a>` : '';
 }
 document.getElementById('sf_kind')?.addEventListener('change', updateSettingsKeyLink);
 

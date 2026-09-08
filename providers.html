@@ -10,8 +10,8 @@
 
 <div class="topbar">
   <div class="topbar-left">
-    <button class="btn btn-gh btn-sm" onclick="goBack('clients.html')">← Indietro</button>
-    <div class="brand"><span class="brand-dot"></span> Motori AI</div>
+    <button class="btn btn-gh btn-sm" onclick="goBack('clients.html')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-arrow-left"></use></svg> Indietro</button>
+    <div class="brand"><span class="brand-mark">G</span><span class="brand-word">Motori AI</span></div>
   </div>
   <div class="topbar-right">
     <button class="btn btn-gh btn-sm" onclick="logout()">Esci</button>
@@ -28,11 +28,11 @@
     con un semplice token gratuito, senza carta di credito.
   </p>
   <div class="flex gap-8 mb-12" style="flex-wrap:wrap;">
-    <a class="btn btn-s btn-sm" href="#" onclick="window.open(supabaseSecretsUrl(),'_blank');return false;">🔐 Apri i secret su Supabase</a>
-    <a class="btn btn-s btn-sm" href="#" onclick="window.open(githubSecretsUrl(),'_blank');return false;">🔐 Apri i secret su GitHub (per la raccolta frame)</a>
+    <a class="btn btn-s btn-sm" href="#" onclick="window.open(supabaseSecretsUrl(),'_blank');return false;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-lock"></use></svg> Apri i secret su Supabase</a>
+    <a class="btn btn-s btn-sm" href="#" onclick="window.open(githubSecretsUrl(),'_blank');return false;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-lock"></use></svg> Apri i secret su GitHub (per la raccolta frame)</a>
   </div>
 
-  <div class="section-lbl">🏷️ Filigrana miniature</div>
+  <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-tag"></use></svg> Filigrana miniature</div>
   <div class="card mb-12">
     <p class="text-xs text-grigio mb-8">
       Applicata automaticamente a ogni proposta finale finché non viene "sbloccata"
@@ -68,20 +68,20 @@
     <button class="btn btn-p btn-block" onclick="saveWatermarkSettings()">Salva filigrana</button>
   </div>
 
-  <div class="section-lbl">✨ Generazione immagini</div>
+  <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Generazione immagini</div>
   <div id="imageProviderList" class="mb-12"></div>
-  <button class="btn btn-s btn-block mb-12" onclick="openNewProvider('image')">＋ Aggiungi provider immagine personalizzato</button>
+  <button class="btn btn-s btn-block mb-12" onclick="openNewProvider('image')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Aggiungi provider immagine personalizzato</button>
 
-  <div class="section-lbl">📝 Analisi script (testo)</div>
+  <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg> Analisi script (testo)</div>
   <div id="textProviderList" class="mb-12"></div>
-  <button class="btn btn-s btn-block" onclick="openNewProvider('text')">＋ Aggiungi provider testo personalizzato</button>
+  <button class="btn btn-s btn-block" onclick="openNewProvider('text')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Aggiungi provider testo personalizzato</button>
 </div>
 
 <div class="overlay" id="provOverlay" onclick="if(event.target===this) closeOverlay('provOverlay')">
   <div class="sheet">
     <div class="sheet-header">
       <span class="sheet-title" id="provSheetTitle">Nuovo provider</span>
-      <button class="sheet-close" onclick="closeOverlay('provOverlay')">✕</button>
+      <button class="sheet-close" onclick="closeOverlay('provOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button>
     </div>
     <form id="provForm">
       <input type="hidden" id="pf_target">
@@ -153,10 +153,10 @@ function renderSection(key){
           <div class="flex gap-6 mt-8" style="flex-wrap:wrap;">
             <span class="tag ${s.tagClass[p.kind]}">${s.kinds[p.kind] || p.kind}</span>
             ${p.config?.model ? `<span class="tag tag-grigio">${escapeHtml(p.config.model)}</span>` : ''}
-            ${p.active ? '<span class="tag tag-maker">✓ Attivo</span>' : ''}
-            ${p.kind !== 'manual' ? (p.config?.api_key ? '<span class="tag tag-maker">🔑 Chiave impostata</span>' : '<span class="tag tag-life">⚠️ Chiave mancante</span>') : ''}
+            ${p.active ? `<span class="tag tag-maker">${icon('check','icon-sm')} Attivo</span>` : ''}
+            ${p.kind !== 'manual' ? (p.config?.api_key ? `<span class="tag tag-maker">${icon('key','icon-sm')} Chiave impostata</span>` : `<span class="tag tag-life">Chiave mancante</span>`) : ''}
           </div>
-          ${p.config?.secret_name && !p.config?.api_key ? `<div class="text-xs text-grigio mt-8">Oppure secret <code>${escapeHtml(p.config.secret_name)}</code>${keyLink ? ` — <a href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ↗</a>` : ''}</div>` : ''}
+          ${p.config?.secret_name && !p.config?.api_key ? `<div class="text-xs text-grigio mt-8">Oppure secret <code>${escapeHtml(p.config.secret_name)}</code>${keyLink ? ` — <a href="${keyLink.url}" target="_blank" rel="noopener">${keyLink.label} ${icon('external-link','icon-sm')}</a>` : ''}</div>` : ''}
         </div>
         <div class="flex gap-6" style="flex-direction:column;">
           ${!p.active ? `<button class="btn btn-g btn-sm" onclick="activateProvider('${key}','${p.id}')">Attiva</button>` : ''}

@@ -40,7 +40,7 @@
   /* ── KIT → GALLERIA (riuso immagini permanenti) ── */
   .kit-pick-card{ position:relative; border-radius:var(--radius-sm); overflow:hidden; border:1.5px solid var(--border); cursor:pointer; }
   .kit-pick-card img{ width:100%; aspect-ratio:1/1; object-fit:cover; display:block; }
-  .kit-pick-card .kit-pick-add{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.0); color:#fff; font-size:22px; opacity:0; transition:opacity .15s, background .15s; }
+  .kit-pick-card .kit-pick-add{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:6px; background:rgba(0,0,0,.0); color:#fff; font-size:12.5px; font-weight:700; opacity:0; transition:opacity .15s, background .15s; text-align:center; padding:8px; }
   .kit-pick-card:hover .kit-pick-add{ opacity:1; background:rgba(0,0,0,.35); }
 
   /* ── MODIFICA IMMAGINE CON AI (overlay) ── */
@@ -57,8 +57,8 @@
 
 <div class="topbar">
   <div class="topbar-left">
-    <button class="btn btn-gh btn-sm" onclick="goBack('onboarding.html')">← Indietro</button>
-    <a class="btn btn-gh btn-sm" href="clients.html">🔑 Master</a>
+    <button class="btn btn-gh btn-sm" onclick="goBack('onboarding.html')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-arrow-left"></use></svg> Indietro</button>
+    <a class="btn btn-gh btn-sm" href="clients.html"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-key"></use></svg> Master</a>
     <div class="brand" id="clientBrandName">…</div>
   </div>
   <div class="topbar-right">
@@ -74,13 +74,28 @@
   </div>
 
   <div class="tabs" id="mainTabBar">
-    <button class="tab-btn on" data-tab="view-create">🎬 Crea miniatura</button>
-    <button class="tab-btn" data-tab="view-profile">👤 Profilo</button>
-    <button class="tab-btn" data-tab="view-settings">⚙️ Impostazioni</button>
+    <button class="tab-btn on" data-tab="view-create"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-create"></use></svg> Crea miniatura</button>
+    <button class="tab-btn" data-tab="view-profile"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-user"></use></svg> Profilo</button>
+    <button class="tab-btn" data-tab="view-pricing"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-tag"></use></svg> Prezzi</button>
+    <button class="tab-btn" data-tab="view-settings"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-settings"></use></svg> Impostazioni</button>
   </div>
 
   <!-- ═══════════════════ VIEW: CREA MINIATURA ═══════════════════ -->
   <div class="tab-panel on" id="view-create">
+
+    <div class="card mt-12 mb-8 hidden" id="profileCompletenessCard">
+      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+        <div>
+          <div class="section-lbl" style="margin:0;">Profilo <span id="pcPercent">—</span>% completo</div>
+          <div class="text-xs text-grigio mt-8">Un profilo completo (foto, logo, tono) rende le miniature generate più coerenti e affidabili.</div>
+        </div>
+        <button class="btn btn-p btn-sm" onclick="document.querySelector('#mainTabBar [data-tab=&quot;view-profile&quot;]').click();">Completa il profilo</button>
+      </div>
+      <div style="height:6px;background:var(--carta);border-radius:99px;overflow:hidden;margin-bottom:10px;">
+        <div id="pcBar" style="height:100%;background:var(--maker);width:0%;transition:width .3s;"></div>
+      </div>
+      <div id="pcChecklist" class="flex gap-6" style="flex-wrap:wrap;"></div>
+    </div>
 
     <div class="card mt-12 mb-8" style="padding:10px 14px;">
       <div class="flex items-center gap-10" style="flex-wrap:wrap;">
@@ -93,13 +108,13 @@
 
       <!-- STEP 1: CANALE & VIDEO -->
       <div class="step-card" id="step-video">
-        <div class="step-head"><span class="step-num">1</span><span class="step-title">📺 Canale &amp; Video</span><span class="step-chevron">⌄</span></div>
+        <div class="step-head"><span class="step-num">1</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-tv"></use></svg><span class="step-title">Canale &amp; Video</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
             <div class="section-lbl" style="margin:0;">I tuoi video</div>
             <div class="flex gap-8">
-              <button class="btn btn-s btn-sm" onclick="importFromChannel()">⟳ Importa dal canale (RSS)</button>
-              <button class="btn btn-p btn-sm" onclick="openNewVideo()">＋ Aggiungi video</button>
+              <button class="btn btn-s btn-sm" onclick="importFromChannel()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-refresh"></use></svg> Importa dal canale (RSS)</button>
+              <button class="btn btn-p btn-sm" onclick="openNewVideo()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Aggiungi video</button>
             </div>
           </div>
           <div id="videoList"><div class="loader">Caricamento…</div></div>
@@ -108,7 +123,7 @@
 
       <!-- STEP 2: GALLERIA VOLTO -->
       <div class="step-card" id="step-gallery">
-        <div class="step-head"><span class="step-num">2</span><span class="step-title">🖼️ Galleria volto</span><span class="step-chevron">⌄</span></div>
+        <div class="step-head"><span class="step-num">2</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-image"></use></svg><span class="step-title">Galleria volto</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="section-lbl">Carica screenshot / foto del volto</div>
           <div class="dropzone" id="galleryDropzone">
@@ -150,7 +165,7 @@
 
       <!-- STEP 3: SCRIPT & ANALISI -->
       <div class="step-card" id="step-script">
-        <div class="step-head"><span class="step-num">3</span><span class="step-title">📝 Script &amp; Analisi</span><span class="step-chevron">⌄</span></div>
+        <div class="step-head"><span class="step-num">3</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg><span class="step-title">Script &amp; Analisi</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
             <div class="section-lbl" style="margin:0;">Motore di analisi attivo</div>
@@ -163,7 +178,7 @@
           <div class="text-xs text-grigio mb-8">Il video magari non è ancora online: scrivi qui l'idea, la scaletta o la bozza — non serve un video pubblicato. Per lo stile generale del canale usa invece "Impara dallo stile del canale" nella tab Profilo.</div>
           <textarea class="textarea" id="scriptContent" style="min-height:200px;" placeholder="Scrivi qui l'idea, la scaletta o la bozza del video…"></textarea>
           <div class="flex gap-8 mt-12">
-            <button class="btn btn-p" id="analyzeBtn" onclick="analyzeScript()">🤖 Analizza con AI</button>
+            <button class="btn btn-p" id="analyzeBtn" onclick="analyzeScript()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-bot"></use></svg> Analizza con AI</button>
             <button class="btn btn-s" onclick="saveScript()">Salva script</button>
           </div>
           <div id="scriptError" class="error-banner mt-12 hidden"></div>
@@ -200,7 +215,7 @@
 
       <!-- STEP 4: GENERA PROPOSTE -->
       <div class="step-card" id="step-generate">
-        <div class="step-head"><span class="step-num">4</span><span class="step-title">✨ Genera proposte</span><span class="step-chevron">⌄</span></div>
+        <div class="step-head"><span class="step-num">4</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg><span class="step-title">Genera proposte</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="flex items-center justify-between mb-12" style="flex-wrap:wrap;gap:8px;">
             <div class="section-lbl" style="margin:0;">Provider attivo</div>
@@ -228,7 +243,7 @@
           </div>
           <div class="section-lbl mt-12">Immagini di riferimento volto (dalla galleria approvata)</div>
           <div id="genRefGrid" class="gallery-grid mb-8"></div>
-          <button class="btn btn-p" id="generateBtn" onclick="runGenerate()">✨ Genera miniatura</button>
+          <button class="btn btn-p" id="generateBtn" onclick="runGenerate()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Genera miniatura</button>
           <div id="genManualUpload" class="mt-12 hidden">
             <div class="info-banner mb-8">Provider "manuale": genera l'immagine altrove (es. ChatGPT/Midjourney) e caricala qui.</div>
             <div class="dropzone" id="manualResultDropzone">
@@ -244,7 +259,7 @@
 
       <!-- STEP 5: EDITOR -->
       <div class="step-card" id="step-editor">
-        <div class="step-head"><span class="step-num">5</span><span class="step-title">🎨 Editor</span><span class="step-chevron">⌄</span></div>
+        <div class="step-head"><span class="step-num">5</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-palette"></use></svg><span class="step-title">Editor</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="flex items-center gap-8 mb-8" style="flex-wrap:wrap;">
             <div class="section-lbl" style="margin:0;">Immagine di base</div>
@@ -262,11 +277,11 @@
             <div>
               <div class="section-lbl">Elementi</div>
               <div class="flex gap-6 wrap mb-8">
-                <button class="btn btn-s btn-sm" onclick="addLayer('text')">+ Testo</button>
-                <button class="btn btn-s btn-sm" onclick="addLayer('rect')">+ Rettangolo</button>
-                <button class="btn btn-s btn-sm" onclick="addLayer('circle')">+ Cerchio</button>
-                <button class="btn btn-s btn-sm" onclick="addLayer('arrow')">+ Freccia</button>
-                <button class="btn btn-s btn-sm" onclick="addLayer('logo')">+ Logo</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('text')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Testo</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('rect')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Rettangolo</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('circle')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Cerchio</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('arrow')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Freccia</button>
+                <button class="btn btn-s btn-sm" onclick="addLayer('logo')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Logo</button>
               </div>
               <div id="layerList" class="mb-8"></div>
               <div id="layerProps"></div>
@@ -274,7 +289,7 @@
                 <label class="lbl">Etichetta proposta</label>
                 <input class="inp" id="proposalLabel">
               </div>
-              <button class="btn btn-p btn-block" onclick="saveProposal()">💾 Salva come proposta</button>
+              <button class="btn btn-p btn-block" onclick="saveProposal()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-save"></use></svg> Salva come proposta</button>
             </div>
           </div>
         </div>
@@ -282,9 +297,9 @@
 
       <!-- STEP 6: ANTEPRIMA & SBLOCCO -->
       <div class="step-card" id="step-preview">
-        <div class="step-head"><span class="step-num">6</span><span class="step-title">✅ Anteprima &amp; Sblocco</span><span class="step-chevron">⌄</span></div>
+        <div class="step-head"><span class="step-num">6</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-check-circle"></use></svg><span class="step-title">Anteprima &amp; Sblocco</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
-          <p class="text-xs text-grigio mb-8">Ogni proposta ha la filigrana finché non viene sbloccata (in futuro: dopo il pagamento in base a dimensione canale/difficoltà — da definire).</p>
+          <p class="text-xs text-grigio mb-8">Ogni proposta ha la filigrana finché non la sblocchi. Lo sblocco è a pagamento — <a href="#" onclick="event.preventDefault();document.querySelector('#mainTabBar [data-tab=&quot;view-pricing&quot;]').click();">vedi i prezzi</a>.</p>
           <div id="proposalsByVideo"></div>
         </div>
       </div>
@@ -325,7 +340,7 @@
     </div>
 
     <div class="card mt-12">
-      <div class="section-lbl">🧠 Impara dallo stile del canale</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-lightbulb"></use></svg> Impara dallo stile del canale</div>
       <p class="text-xs text-grigio mb-8">
         Opzionale, non serve per ogni miniatura: il video nuovo di solito non è ancora
         su YouTube. Usalo ogni tanto per analizzare un video già pubblicato ed estrarre
@@ -336,12 +351,12 @@
         <label class="lbl">URL di un video già pubblicato</label>
         <input class="inp" id="kitAnalysisUrl" placeholder="https://www.youtube.com/watch?v=…">
       </div>
-      <button class="btn btn-s btn-sm" id="kitAnalysisBtn" onclick="runKitChannelAnalysis()">✨ Analizza con Gemini</button>
+      <button class="btn btn-s btn-sm" id="kitAnalysisBtn" onclick="runKitChannelAnalysis()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Analizza con Gemini</button>
       <div id="kitAnalysisError" class="error-banner mt-8 hidden"></div>
       <div id="kitAnalysisResult" class="mt-12 hidden">
         <div class="lbl">Risultato</div>
         <div class="text-sm mb-8" id="kitAnalysisSummary" style="white-space:pre-line;"></div>
-        <button class="btn btn-p btn-sm" onclick="saveKitChannelAnalysisAsNote()">💾 Salva nel Kit come nota di stile</button>
+        <button class="btn btn-p btn-sm" onclick="saveKitChannelAnalysisAsNote()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-save"></use></svg> Salva nel Kit come nota di stile</button>
       </div>
     </div>
 
@@ -356,9 +371,9 @@
 
       <div class="grid grid-2 mt-12">
         <label class="btn btn-s" style="cursor:pointer;justify-content:center;">
-          📄 Carica documento <input type="file" id="kitDocInput" class="hidden">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg> Carica documento <input type="file" id="kitDocInput" class="hidden">
         </label>
-        <button class="btn btn-s" onclick="openKitNoteField()">📝 Aggiungi nota di stile</button>
+        <button class="btn btn-s" onclick="openKitNoteField()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-pencil"></use></svg> Aggiungi nota di stile</button>
       </div>
 
       <div class="field mt-12 hidden" id="kitNoteField">
@@ -371,39 +386,74 @@
     </div>
   </div>
 
+  <!-- ═══════════════════ VIEW: PREZZI ═══════════════════ -->
+  <div class="tab-panel" id="view-pricing">
+    <div class="card mt-12">
+      <div class="ttl" style="font-size:16px;margin-bottom:4px;">Quanto costa, in chiaro</div>
+      <p class="text-sm text-grigio mb-8">Nessun costo nascosto: generare e modificare miniature è sempre gratuito. Paghi solo quando vuoi togliere la filigrana da una miniatura finita, oppure se vuoi più margine di generazione ogni mese.</p>
+    </div>
+
+    <div class="card mt-12">
+      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+        <div class="section-lbl" style="margin:0;display:flex;align-items:center;gap:6px;"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Generazioni</div>
+        <span class="tag tag-maker">Gratis</span>
+      </div>
+      <p class="text-sm mb-8"><b>30 generazioni AI al mese</b>, senza costo — comprende ogni volta che premi "Genera miniatura" o "Genera modifica". Sufficienti per 4-8 video con margine di tentativi. Nessuna carta richiesta: funziona con la tua chiave del motore che scegli in Impostazioni (anche quelli gratuiti come Hugging Face).</p>
+      <div class="hint">Il conteggio delle generazioni usate questo mese non è ancora attivo nel tool — per ora puoi generare senza limite mentre lo testiamo. Il tetto sopra è il valore che verrà applicato.</div>
+    </div>
+
+    <div class="card mt-12">
+      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+        <div class="section-lbl" style="margin:0;display:flex;align-items:center;gap:6px;"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-bot"></use></svg> Abbonamento Creator</div>
+        <span class="tag tag-athlete">9,90€ / mese</span>
+      </div>
+      <p class="text-sm mb-8">Se pubblichi spesso, l'abbonamento conviene: <b>~150 generazioni al mese</b> invece di 30, più <b>2 sblocchi inclusi</b> (valore 8€) e prezzo di sblocco scontato sugli extra. Si attiva e disattiva quando vuoi, nessun vincolo.</p>
+      <div class="hint">Non ancora attivabile da qui — il pagamento ricorrente non è collegato. Fammi sapere quando vuoi che lo colleghiamo davvero.</div>
+    </div>
+
+    <div class="card mt-12">
+      <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
+        <div class="section-lbl" style="margin:0;display:flex;align-items:center;gap:6px;"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-unlock"></use></svg> Sblocco miniatura</div>
+        <span class="tag tag-sabbia">4€ (3€ da abbonato)</span>
+      </div>
+      <p class="text-sm mb-8">Ogni miniatura che generi ha una filigrana finché non la sblocchi. Lo sblocco è <b>per singola miniatura</b>, un pagamento una tantum — non un abbonamento. Con l'abbonamento Creator attivo, ogni sblocco costa 3€ invece di 4€.</p>
+      <div class="hint">Il pulsante di sblocco nella scheda Anteprima funziona già e applica questo prezzo — il pagamento reale (carta) non è ancora collegato: per ora lo sblocco è gratuito mentre testiamo il tool.</div>
+    </div>
+  </div>
+
   <!-- ═══════════════════ VIEW: IMPOSTAZIONI ═══════════════════ -->
   <div class="tab-panel" id="view-settings">
 
     <div class="card mt-12">
-      <div class="section-lbl">🤖 Motori AI — tutti i passaggi</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-bot"></use></svg> Motori AI — tutti i passaggi</div>
       <p class="text-xs text-grigio mb-8">
         Stessa lista che vedi nei pulsanti rapidi di Script &amp; Analisi e Genera proposte —
         qui puoi anche aggiungere provider, incollare chiavi API e aprire il sito dell'IA.
         Le modifiche sono immediate ovunque nel tool.
       </p>
 
-      <div class="section-lbl">📝 Analisi script</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg> Analisi script</div>
       <div id="settingsListText" class="mb-8"></div>
-      <button class="btn btn-s btn-sm mb-16" onclick="openSettingsProviderForm('text')">＋ Aggiungi motore analisi</button>
+      <button class="btn btn-s btn-sm mb-16" onclick="openSettingsProviderForm('text')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Aggiungi motore analisi</button>
 
-      <div class="section-lbl">✨ Generazione immagini</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Generazione immagini</div>
       <div id="settingsListImage" class="mb-8"></div>
-      <button class="btn btn-s btn-sm mb-16" onclick="openSettingsProviderForm('image')">＋ Aggiungi provider immagine</button>
+      <button class="btn btn-s btn-sm mb-16" onclick="openSettingsProviderForm('image')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Aggiungi provider immagine</button>
 
-      <div class="section-lbl">✏️ Modifica immagine (AI)</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-pencil"></use></svg> Modifica immagine (AI)</div>
       <div id="settingsListEdit" class="mb-8"></div>
-      <button class="btn btn-s btn-sm" onclick="openSettingsProviderForm('edit')">＋ Aggiungi provider modifica</button>
+      <button class="btn btn-s btn-sm" onclick="openSettingsProviderForm('edit')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-plus"></use></svg> Aggiungi provider modifica</button>
     </div>
 
     <div class="card mt-12">
-      <div class="section-lbl">🔔 Notifiche</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-bell"></use></svg> Notifiche</div>
       <p class="text-xs text-grigio mb-8">L'invio vero e proprio arriva più avanti — da qui puoi già salvare le tue preferenze.</p>
       <div id="notifPrefsList"></div>
       <button class="btn btn-s btn-sm mt-8" onclick="saveNotificationPrefs()">Salva preferenze</button>
     </div>
 
     <div class="card mt-12">
-      <div class="section-lbl">🔒 Dati sensibili</div>
+      <div class="section-lbl" style="display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-lock"></use></svg> Dati sensibili</div>
       <div class="field"><label class="lbl">Email account</label><input class="inp" id="sec_email" disabled></div>
       <div class="grid grid-2">
         <div class="field"><label class="lbl">Nuova password</label><input class="inp" type="password" id="sec_pass1" autocomplete="new-password"></div>
@@ -422,7 +472,7 @@
   <div class="sheet">
     <div class="sheet-header">
       <span class="sheet-title" id="settingsProvTitle">Nuovo provider</span>
-      <button class="sheet-close" onclick="closeOverlay('settingsProvOverlay')">✕</button>
+      <button class="sheet-close" onclick="closeOverlay('settingsProvOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button>
     </div>
     <form id="settingsProvForm">
       <input type="hidden" id="sf_target">
@@ -445,7 +495,7 @@
 <!-- SHEET: nuovo video -->
 <div class="overlay" id="newVideoOverlay" onclick="if(event.target===this) closeOverlay('newVideoOverlay')">
   <div class="sheet">
-    <div class="sheet-header"><span class="sheet-title">Nuovo video</span><button class="sheet-close" onclick="closeOverlay('newVideoOverlay')">✕</button></div>
+    <div class="sheet-header"><span class="sheet-title">Nuovo video</span><button class="sheet-close" onclick="closeOverlay('newVideoOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button></div>
     <form id="newVideoForm">
       <div class="field"><label class="lbl">Titolo</label><input class="inp" id="nv_title" required></div>
       <div class="field"><label class="lbl">URL YouTube (opzionale)</label><input class="inp" id="nv_url" placeholder="https://youtube.com/watch?v=…"></div>
@@ -457,7 +507,7 @@
 <!-- SHEET: dettaglio immagine galleria -->
 <div class="overlay" id="imgDetailOverlay" onclick="if(event.target===this) closeOverlay('imgDetailOverlay')">
   <div class="sheet">
-    <div class="sheet-header"><span class="sheet-title">Dettaglio immagine</span><button class="sheet-close" onclick="closeOverlay('imgDetailOverlay')">✕</button></div>
+    <div class="sheet-header"><span class="sheet-title">Dettaglio immagine</span><button class="sheet-close" onclick="closeOverlay('imgDetailOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button></div>
     <img id="imgDetailPreview" style="width:100%;border-radius:10px;margin-bottom:12px;">
     <div class="grid grid-2">
       <div class="field"><label class="lbl">Posa</label><input class="inp" id="imgDetailPose" placeholder="es. braccia incrociate"></div>
@@ -465,9 +515,9 @@
     </div>
     <div class="field"><label class="lbl">Tag (virgola)</label><input class="inp" id="imgDetailTags"></div>
     <div class="flex gap-8 mb-8">
-      <button class="btn btn-g btn-sm" onclick="setImgStatus('approved')">✓ Approva</button>
-      <button class="btn btn-s btn-sm" onclick="setImgStatus('candidate')">↺ Da rivedere</button>
-      <button class="btn btn-o btn-sm" onclick="setImgStatus('rejected')">✕ Rifiuta</button>
+      <button class="btn btn-g btn-sm" onclick="setImgStatus('approved')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-check"></use></svg> Approva</button>
+      <button class="btn btn-s btn-sm" onclick="setImgStatus('candidate')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-undo"></use></svg> Da rivedere</button>
+      <button class="btn btn-o btn-sm" onclick="setImgStatus('rejected')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg> Rifiuta</button>
     </div>
     <div class="flex gap-8">
       <button class="btn btn-s btn-block" onclick="saveImgDetail()">Salva tag</button>
@@ -480,8 +530,8 @@
 <div class="overlay" id="imgEditOverlay" onclick="if(event.target===this) closeOverlay('imgEditOverlay')">
   <div class="sheet">
     <div class="sheet-header">
-      <span class="sheet-title">✏️ Modifica con AI</span>
-      <button class="sheet-close" onclick="closeOverlay('imgEditOverlay')">✕</button>
+      <span class="sheet-title" style="display:flex;align-items:center;gap:7px;"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-pencil"></use></svg> Modifica con AI</span>
+      <button class="sheet-close" onclick="closeOverlay('imgEditOverlay')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-x"></use></svg></button>
     </div>
 
     <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
@@ -509,7 +559,7 @@
       <textarea class="textarea" id="editPrompt" style="min-height:70px;" placeholder="Es. rendi lo sfondo più scuro, aggiungi un sorriso, cambia la maglietta di colore blu…"></textarea>
     </div>
     <div id="editError" class="error-banner mt-8 hidden"></div>
-    <button class="btn btn-p btn-block mt-8" id="editRunBtn" onclick="runImageEdit()">✨ Genera modifica</button>
+    <button class="btn btn-p btn-block mt-8" id="editRunBtn" onclick="runImageEdit()"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Genera modifica</button>
 
     <div class="flex gap-8 mt-12 hidden" id="editApplyRow">
       <button class="btn btn-s btn-block" onclick="applyEditResult('new')">Salva come nuova immagine</button>
