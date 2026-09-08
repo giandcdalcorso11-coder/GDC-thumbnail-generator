@@ -32,6 +32,12 @@ Funziona su qualsiasi progetto: usa un linguaggio generico ("verifica",
 ```
 # Documento di Sessione — <nome progetto>
 
+**Versione:** N (incrementata di 1 ogni volta che il file viene rigenerato,
+indipendentemente da cosa è cambiato — è un contatore di revisioni, non di
+sessioni)
+**Ultimo aggiornamento:** [YYYY-MM-DD HH:MM] — coincide con la data/ora della
+voce più recente in cima allo Storico sessioni
+
 ## Vision
 <contenuto libero>
 
@@ -42,6 +48,20 @@ Funziona su qualsiasi progetto: usa un linguaggio generico ("verifica",
 ## Storico sessioni
 <voci di sessione, più recente in cima>
 ```
+
+La prima volta che crei il documento per un progetto, parti da **Versione: 1**.
+Ogni volta che rigeneri il file (nuova voce, modifica a Pipeline/Vision,
+qualsiasi aggiornamento), incrementa di 1 sia il numero di Versione sia
+Ultimo aggiornamento — anche per Claude Code, non solo su Claude.ai: è un
+contatore univoco del documento, utile per verificare a colpo d'occhio se due
+copie (es. una sul PC via Claude Code, una caricata su un Progetto
+Claude.ai) sono allineate o no.
+
+Quando consegni il file (specialmente su Claude.ai, dove l'utente deve
+scaricarlo e ricaricarlo manualmente), **dichiara sempre il numero di
+versione nel messaggio di accompagnamento**, es. "Documento aggiornato alla
+versione 7." — così l'utente può confrontarlo subito con la versione che ha
+già caricato nel Progetto senza dover aprire il file.
 
 ## Come aggiornare la Vision
 
@@ -174,8 +194,9 @@ Se lo stesso progetto viene aggiornato sia da Claude Code (che scrive
 direttamente sul file) sia da Claude.ai (dove l'utente ricarica manualmente il
 file nei Progetti), le due copie possono disallinearsi. Per prevenirlo:
 
-- Prima di aggiungere una nuova voce, controlla la data/ora dell'ultima voce
-  già presente nello Storico sessioni.
+- Prima di aggiungere una nuova voce, controlla la **Versione** e la data/ora
+  dell'ultima voce già presenti nel documento — la Versione è il modo più
+  rapido per accorgersi di un disallineamento, prima ancora di leggere le date.
 - Se quella data è precedente all'ultima volta che ricordi di aver lavorato su
   questo progetto (in Claude Code o in un'altra chat), o se il contenuto non
   corrisponde a quanto ti aspetteresti, **segnalalo esplicitamente all'utente
