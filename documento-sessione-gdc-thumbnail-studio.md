@@ -1,7 +1,7 @@
 # Documento di Sessione — GDC Thumbnail Studio
 
-**Versione:** 4
-**Ultimo aggiornamento:** [2026-09-08 22:20]
+**Versione:** 5
+**Ultimo aggiornamento:** [2026-09-08 23:10]
 
 ## Vision
 
@@ -226,21 +226,52 @@ viceversa (stesse tabelle DB condivise).
 
 ### Step 8 — Pannello Master
 
-**Stato:** completato (fase attuale, senza isolamento privacy)
+**Stato:** completato — isolamento reale introdotto l'8 settembre (sera)
 
-**Obiettivo:** vista di controllo su tutti i profili, video, proposte e
-sblocchi — per ora accessibile senza restrizioni oltre il login.
+**Obiettivo:** vista di controllo su tutti i profili — riservata al
+titolare, senza accesso allo spazio di lavoro dei singoli clienti.
 
-**Decisioni progettuali:** nessun filtro privacy tra clienti per ora,
-esplicitamente segnalato in UI come cosa da rivedere prima di aprire il
-tool ad altri utenti reali.
+**Decisioni progettuali:** **[8 set 2026, sera] Supera la decisione del:
+7-8 set 2026 (stato "nessun filtro privacy ancora")** — l'utente ha
+notato che il pannello Master era raggiungibile da un link visibile nelle
+pagine cliente. Controllando il codice è emerso un problema più a monte:
+tutte le tabelle avevano RLS `for all to authenticated using (true)`,
+quindi qualsiasi account cliente poteva leggere/scrivere i dati di TUTTI
+gli altri clienti chiamando direttamente le API Supabase, a prescindere
+dai link mostrati in interfaccia. Proposte due opzioni (solo fix UI, o
+fix UI + isolamento reale nel database) — l'utente ha scelto la seconda.
+Implementato: `is_master()` (funzione Postgres, email fissa dell'account
+titolare) vede/gestisce tutto; un cliente vede/scrive solo le righe
+collegate al proprio `owner_user_id`, sia sulle tabelle (`thumb_clients`
+e le 7 tabelle figlie via `client_id`) sia sui file dello storage bucket
+`thumb-assets` (path `clients/<client_id>/...`). Le tabelle di
+configurazione motori AI globali (`thumb_image_providers`,
+`thumb_text_providers`, `thumb_edit_providers`, `thumb_app_settings`)
+restano permissive per ora — sono condivise da tutti i clienti così come
+strutturato oggi il tool (nessun motore ancora "per cliente"); vanno
+riviste quando si lavorerà sulla webapp clienti. Lato frontend: nessun
+link "Master" più visibile nelle pagine cliente (rimosso del tutto, non
+solo nascosto); l'account Master viene reindirizzato automaticamente a
+`clients.html` dopo il login (rilevato via email fissa), invece di
+vedere un link cliccabile.
 
-**Criterio di completamento:** da ridefinire quando si introdurrà
-l'isolamento dati per cliente/utente.
+Anche la UX del pannello è cambiata: cliccare un profilo cliente non
+apre più il suo spazio di lavoro (`client.html?id=...`) ma un prospetto
+di sola lettura — profilo salvato (canale, nicchia, tono, logo, colori
+brand, note), contatori di attività, kit permanente — su richiesta
+esplicita dell'utente ("non mi interessa accedere al suo profilo per
+lavorare sui suoi lavori"). "Modifica profilo" resta disponibile ma solo
+per i campi anagrafici, tramite la sheet di modifica già esistente.
+
+**Criterio di completamento:** isolamento dati verificato con un vero
+account cliente non-Master (non ancora testato con un secondo account
+reale — solo verificato a livello di policy SQL); motori AI ancora da
+rendere per-cliente in un secondo momento.
 
 **Note (cronologia dello step):**
 - [2026-09-07] Rietichettato `clients.html` come "Pannello Master"; aggiunta colonna sblocchi alle statistiche e badge "Assegnato/Non assegnato" per profilo.
 - [2026-09-08] Aggiunto pulsante "← Indietro" nella topbar (mancava una navigazione comoda, c'era solo "Esci").
+- [2026-09-08, sera] Isolamento reale Master/cliente (RLS + storage) via migrazione `0006_master_rls.sql`; rimossi i link "Master" dalle pagine cliente; pannello Master ridisegnato con prospetto di sola lettura per profilo invece di accesso diretto allo spazio di lavoro; aggiunta card "Motori AI attivi oggi" (configurazione globale, non ancora per-cliente); inserito il logo reale GDC (`assets/logo-gdc.svg`, fornito dall'utente) al posto del monogramma placeholder nelle pagine Master/onboarding/login.
 
 ### Step 9 — Raccolta automatica frame volto (yt-dlp/ffmpeg/OpenCV via GitHub Action)
 
