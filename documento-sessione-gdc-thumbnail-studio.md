@@ -1,5 +1,8 @@
 # Documento di Sessione — GDC Thumbnail Studio
 
+**Versione:** 2
+**Ultimo aggiornamento:** [2026-09-08 20:15]
+
 ## Vision
 
 Tool di generazione miniature YouTube con coerenza del volto, per creator/clienti
@@ -155,13 +158,22 @@ pulito, la filigrana è applicata solo lato client in anteprima/download.
 
 **Decisioni progettuali:** sblocco attualmente manuale/placeholder (nessun
 pagamento reale collegato) — il collegamento a un sistema di pagamento vero
-è esplicitamente rimandato a più avanti.
+è esplicitamente rimandato a più avanti. **Modello di monetizzazione scelto
+(8 set 2026):** Modello A (sblocco a pagamento, BYOK) con un'aggiunta — un
+tetto di generazioni AI gratuite al mese, ampliabile con un abbonamento.
+Non sostituisce lo sblocco, lo affianca. Prezzi indicativi da validare con
+dati reali: 30 generazioni/mese gratuite; abbonamento "Creator" €9,90/mese
+per generazioni ampliate (~150/mese) + 2 sblocchi inclusi; sblocco singolo
+€4 (scontato a €3 per gli abbonati). Vedi Storico sessioni per il
+ragionamento e le fonti di mercato.
 
 **Criterio di completamento:** collegamento reale a un provider di
-pagamento; per ora resta manuale.
+pagamento; per ora resta manuale. Il tetto di generazioni/mese e
+l'abbonamento "Creator" non sono ancora implementati (solo decisi).
 
 **Note (cronologia dello step):**
 - [prima della sessione corrente] Meccanismo di filigrana e flag `unlocked` su `thumb_proposals` costruiti nelle fasi iniziali del progetto — non modificati in questa sessione.
+- [2026-09-08] Scelto il modello di monetizzazione: sblocco a pagamento + tetto di generazioni mensili ampliabile via abbonamento (non ancora implementato in codice).
 
 ### Step 6 — Profilo cliente & Kit permanente
 
@@ -248,6 +260,35 @@ in `thumb_gallery_images` con `source='auto'`.
 - [2026-09-07] **Bug 4 — non risolto: YouTube blocca il download.** Sintomo: ogni download `yt-dlp` fallisce con `Sign in to confirm you're not a bot`, pur risolvendo correttamente canale (`UCirnRRX1fQkWGjFKUNYNM6g`) e feed RSS (3 video trovati). Causa: blocco anti-bot di YouTube sugli IP dei runner GitHub Actions — non un bug nel nostro codice. Fix applicato: nessuno che funzioni — tentato `--extractor-args youtube:player_client=android` (workaround comunitario noto), **non ha risolto** (stesso errore su tutti i 9 tentativi). Fix rimasto ma non implementato: autenticazione via cookie di una sessione YouTube reale (da esportare dal browser, salvare come secret, rinnovare periodicamente — più fragile e con implicazioni di sicurezza). Deprioritizzato dopo la decisione dell'8 settembre: il caricamento manuale in Kit/Galleria resta la via consigliata.
 
 ## Storico sessioni
+
+### [2026-09-08 20:15] Scelto il modello di monetizzazione: sblocco + tetto generazioni
+
+**Riepilogo:** Dopo aver studiato l'artifact di confronto (sezione "Sblocco o
+crediti?"), l'utente ha scelto il Modello A con un'aggiunta — sblocco a
+pagamento per miniatura più un tetto di generazioni AI gratuite al mese,
+ampliabile con un abbonamento; su richiesta, ricercati prezzi di mercato
+comparabili per proporre cifre concrete.
+
+**Cosa è stato fatto:**
+- Aggiunto l'header **Versione**/**Ultimo aggiornamento** a questo documento (skill `documento-sessione` aggiornata dall'utente nella stessa sessione).
+- Ricerca di mercato su modelli comparabili: tool AI di thumbnail YouTube (Krea $9/mese, Juma $8/mese, Thumbmagic $20-60/mese, vidIQ Boost ~$19/mese, Canva $12,99/mese), tetti di generazione freemium (Leonardo AI: 150 token/giorno gratis ≈ 30-50 immagini/giorno, poi $12/$30/$60 al mese), pacchetti "pay once per asset finito e usabile" (Aragon AI: $35-75 una tantum per 20-100 headshot), pay-per-download stock photo (Shutterstock, poco comparabile: minimo 2 immagini, $29+/immagine, modello pensato per licensing non per creator tool).
+- Proposta una struttura di prezzo concreta (vedi Decisioni prese) e registrata come decisione nello Step 5 della Pipeline.
+
+**Decisioni prese:**
+- Contesto: l'utente ha studiato l'artifact "Sblocco o crediti?" (voce precedente) e ha scelto una via di mezzo tra Modello A puro e un sistema a crediti completo, chiedendo aiuto sui prezzi.
+- Decisione: restare su Modello A (sblocco a pagamento, BYOK, costo AI a carico del cliente) aggiungendo un tetto di generazioni gratuite al mese come leva di upgrade — non per proteggere un costo AI (che con BYOK resta a zero per GDC), ma come meccanica freemium classica e per contenere l'uso dell'infrastruttura condivisa (storage/funzioni Supabase, che scalano con ogni generazione indipendentemente da chi paga il motore AI). Cifre proposte da validare con dati reali: 30 generazioni/mese gratuite; abbonamento "Creator" a €9,90/mese per generazioni ampliate (~150/mese) con 2 sblocchi inclusi; sblocco singolo a €4 (€3 per abbonati). Il prezzo dell'abbonamento è ancorato al basso della fascia di mercato dei tool thumbnail-specifici (Krea $9, Juma $8), giustificabile dalla coerenza volto/stile che i tool generici non offrono; il prezzo di sblocco resta vicino a quanto già simulato nel calcolatore dell'artifact precedente, supportato dal comparabile Aragon (le persone pagano cifre reali, non centesimi, per un asset AI finito e pronto all'uso).
+- Alternative scartate: nessun tetto di generazioni (Modello A puro, voce precedente) — scartato dall'utente perché non cattura valore dai clienti che generano molto; sistema a crediti completo (Modello B) — già scartato nell'artifact per il rischio di costo lato GDC.
+- Da rivedere se: dopo 4-6 settimane di utilizzo reale (vedi Step 9... cioè sezione "Prossimi passi" dell'artifact), i numeri di generazioni/sblocchi effettivi si discostano molto dalle stime — in quel caso ricalibrare tetto gratuito, prezzo abbonamento e prezzo sblocco prima di implementarli.
+
+**File consegnati/modificati:**
+- `documento-sessione-gdc-thumbnail-studio.md` (Versione 1 → 2: header versione aggiunto, Step 5 e questa voce aggiornati)
+- `.claude/skills/documento-sessione/SKILL.md` (aggiornata dall'utente con l'header Versione — vedi voce precedente per il commit)
+
+**Impatto su Vision/Pipeline:** Step 5 della Pipeline aggiornato con il
+modello di monetizzazione scelto (sblocco + tetto generazioni/abbonamento);
+implementazione ancora da fare, resta un `da fare` dentro lo step.
+
+---
 
 ### [2026-09-08 19:30] Skill documento-sessione, correzione workflow, prima stesura del documento
 
