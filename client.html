@@ -51,6 +51,24 @@
   /* ── IMPOSTAZIONI: righe provider compatte ── */
   .settings-provider-row{ border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
   .settings-provider-row.active{ border-color:var(--maker); }
+
+  /* ── Icona info con tooltip (vicino ai selettori di modello) ── */
+  .info-tip{ position:relative; display:inline-flex; color:var(--grigio-lt); cursor:pointer; flex-shrink:0; }
+  .info-tip:hover{ color:var(--sabbia-dk); }
+  .info-tip .tip-bubble{
+    position:absolute; bottom:calc(100% + 7px); right:-6px; z-index:80; width:max-content; max-width:210px;
+    background:var(--nero); color:var(--carta); font-size:11px; font-weight:600; line-height:1.35;
+    padding:7px 10px; border-radius:8px; text-align:left;
+    opacity:0; pointer-events:none; transform:translateY(3px); transition:opacity .12s,transform .12s;
+  }
+  .info-tip:hover .tip-bubble{ opacity:1; transform:translateY(0); }
+
+  /* ── GUIDA MODELLI: card per motore ── */
+  .model-card{ background:var(--bianco); border:1.5px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; }
+  .model-card.rec{ border-color:var(--sabbia); border-width:2px; }
+  .model-card-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:7px; }
+  .model-card-name{ font-weight:800; font-size:14px; }
+  .model-card-tags{ display:flex; flex-wrap:wrap; gap:5px; }
 </style>
 </head>
 <body>
@@ -77,6 +95,7 @@
     <button class="tab-btn" data-tab="view-profile"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-user"></use></svg> Profilo</button>
     <button class="tab-btn" data-tab="view-pricing"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-tag"></use></svg> Prezzi</button>
     <button class="tab-btn" data-tab="view-settings"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-settings"></use></svg> Impostazioni</button>
+    <button class="tab-btn" data-tab="view-guide"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-lightbulb"></use></svg> Guida modelli</button>
   </div>
 
   <!-- ═══════════════════ VIEW: CREA MINIATURA ═══════════════════ -->
@@ -167,7 +186,10 @@
         <div class="step-head"><span class="step-num">3</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg><span class="step-title">Script &amp; Analisi</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
-            <div class="section-lbl" style="margin:0;">Motore di analisi attivo</div>
+            <div class="flex items-center gap-6" style="margin:0;">
+              <div class="section-lbl" style="margin:0;">Motore di analisi attivo</div>
+              <span class="info-tip" onclick="goToGuide('text')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-info"></use></svg><span class="tip-bubble">Guida per scegliere il modello migliore</span></span>
+            </div>
             <div class="model-picker" id="textModelPicker">
               <button type="button" class="btn btn-s btn-sm" id="textModelPickerBtn" onclick="toggleModelPicker('text')">—</button>
               <div class="model-picker-list" id="textModelPickerList"></div>
@@ -217,7 +239,10 @@
         <div class="step-head"><span class="step-num">4</span><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg><span class="step-title">Genera proposte</span><span class="step-chevron">⌄</span></div>
         <div class="step-body">
           <div class="flex items-center justify-between mb-12" style="flex-wrap:wrap;gap:8px;">
-            <div class="section-lbl" style="margin:0;">Provider attivo</div>
+            <div class="flex items-center gap-6" style="margin:0;">
+              <div class="section-lbl" style="margin:0;">Provider attivo</div>
+              <span class="info-tip" onclick="goToGuide('image')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-info"></use></svg><span class="tip-bubble">Guida per scegliere il modello migliore</span></span>
+            </div>
             <div class="model-picker" id="imageModelPicker">
               <button type="button" class="btn btn-s btn-sm" id="imageModelPickerBtn" onclick="toggleModelPicker('image')">—</button>
               <div class="model-picker-list" id="imageModelPickerList"></div>
@@ -481,6 +506,146 @@
 
   </div>
 
+  <!-- ═══════════════════ VIEW: GUIDA MODELLI ═══════════════════ -->
+  <div class="tab-panel" id="view-guide">
+    <div class="card mt-12">
+      <div class="ttl" style="font-size:16px;margin-bottom:4px;">Guida per scegliere il modello migliore</div>
+      <p class="text-sm text-grigio">Non tutti i motori funzionano allo stesso modo per ogni passaggio. Qui trovi, per ciascun tipo di motore, quali sono oggi i migliori per una miniatura YouTube, quanto costano indicativamente e — cosa più importante — quali usano davvero le foto della tua Galleria volto per mantenere il viso coerente, e quali invece la ignorano.</p>
+    </div>
+
+    <!-- ── GENERAZIONE IMMAGINE ── -->
+    <div class="section-lbl mt-16" id="guide-image" style="scroll-margin-top:70px;display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-sparkles"></use></svg> Generazione immagine (miniatura da zero)</div>
+
+    <div class="model-card rec">
+      <div class="model-card-head">
+        <span class="model-card-name">PuLID — fal.ai</span>
+        <div class="model-card-tags"><span class="tag tag-sabbia">Il migliore per il volto</span><span class="tag tag-grigio">~0,03€/immagine</span></div>
+      </div>
+      <p class="text-sm mb-8">Il motore con la fedeltà al volto più alta nei confronti indipendenti (identità preservata 94-96% dei casi contro l'88-92% di InstantID). Usa davvero le foto della tua Galleria volto. È la scelta giusta se la coerenza del viso è la priorità numero uno.</p>
+      <div class="hint">Configuralo in Impostazioni → Motori AI: provider "fal", modello <code>fal-ai/flux-pulid</code>. Serve una chiave fal.ai (crediti gratuiti di benvenuto).</div>
+      <a class="text-xs" href="https://fal.ai/models/fal-ai/flux-pulid" target="_blank" rel="noopener">Vedi il modello su fal.ai →</a>
+    </div>
+
+    <div class="model-card rec">
+      <div class="model-card-head">
+        <span class="model-card-name">InstantID — fal.ai</span>
+        <div class="model-card-tags"><span class="tag tag-sabbia">Consigliato</span><span class="tag tag-athlete">Il più usato</span><span class="tag tag-grigio">~0,04€/immagine</span></div>
+      </div>
+      <p class="text-sm mb-8">Buon compromesso tra fedeltà al volto (88-92%) e capacità di seguire il resto del prompt (ambientazione, posa, stile). È il motore fal.ai già preconfigurato di default in questo tool — usa davvero le foto della Galleria volto.</p>
+      <div class="hint">Già configurato: provider "fal", modello <code>fal-ai/instant-id</code>.</div>
+      <a class="text-xs" href="https://fal.ai/models/fal-ai/instant-id" target="_blank" rel="noopener">Vedi il modello su fal.ai →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">FLUX.1 schnell — Hugging Face</span>
+        <div class="model-card-tags"><span class="tag tag-maker">Gratis</span></div>
+      </div>
+      <p class="text-sm mb-8">Il motore attivo di default in questo tool: gratuito fino a 300 richieste/ora, molto veloce. <b>Attenzione:</b> oggi genera solo dal testo del prompt — non riceve le foto della Galleria volto, quindi il viso nel risultato non sarà coerente con i tuoi riferimenti. Va bene per provare il tool o per scene senza un volto identificabile, non per la miniatura finale con il tuo volto.</p>
+      <a class="text-xs" href="https://huggingface.co/black-forest-labs/FLUX.1-schnell" target="_blank" rel="noopener">Vedi il modello su Hugging Face →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">gpt-image-1 — OpenAI</span>
+        <div class="model-card-tags"><span class="tag tag-grigio">A pagamento (0,04-0,17€/immagine)</span></div>
+      </div>
+      <p class="text-sm mb-8">Immagini molto pulite e ottima capacità di seguire istruzioni testuali complesse (es. testo leggibile nell'immagine). Come FLUX.1 schnell, in questo tool <b>non riceve le foto di riferimento</b> in fase di generazione — stesso avvertimento sulla coerenza del viso.</p>
+      <div class="hint">OpenAI ha annunciato il ritiro di questo modello per il 23 ottobre 2026, sostituito da gpt-image-1.5 — se lo usi come motore principale, dimmelo quando vuoi che aggiorni la configurazione.</div>
+      <a class="text-xs" href="https://platform.openai.com/docs/models/gpt-image-1" target="_blank" rel="noopener">Documentazione OpenAI →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">Replicate (catalogo)</span>
+        <div class="model-card-tags"><span class="tag tag-grigio">A pagamento</span><span class="tag tag-grigio">Flessibile</span></div>
+      </div>
+      <p class="text-sm mb-8">Non è un singolo modello ma un intero catalogo (FLUX, Ideogram, Recraft, varianti di InstantID...). Scegli tu quale modello puntare nel campo "Modello" della configurazione: se il modello scelto accetta un'immagine di riferimento, questo tool gliela passa automaticamente.</p>
+      <a class="text-xs" href="https://replicate.com/collections/text-to-image" target="_blank" rel="noopener">Esplora il catalogo Replicate →</a>
+    </div>
+
+    <!-- ── ANALISI SCRIPT ── -->
+    <div class="section-lbl mt-16" id="guide-text" style="scroll-margin-top:70px;display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-file-text"></use></svg> Analisi script (tono, stile, idee per la scena)</div>
+
+    <div class="model-card rec">
+      <div class="model-card-head">
+        <span class="model-card-name">Gemini 2.5/3 Flash — Google</span>
+        <div class="model-card-tags"><span class="tag tag-maker">Gratis</span><span class="tag tag-sabbia">Consigliato</span></div>
+      </div>
+      <p class="text-sm mb-8">Gratuito con limiti generosi (nessuna carta richiesta) ed è l'unico motore di questo tool che può analizzare un video YouTube direttamente dall'URL, non solo il testo — usato dal Kit permanente per "Impara dallo stile del canale". Ottimo punto di partenza.</p>
+      <a class="text-xs" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Crea chiave gratuita Google AI Studio →</a>
+    </div>
+
+    <div class="model-card rec">
+      <div class="model-card-head">
+        <span class="model-card-name">Claude Haiku 4.5 — Anthropic</span>
+        <div class="model-card-tags"><span class="tag tag-sabbia">Il migliore per il tono</span><span class="tag tag-grigio">A pagamento</span></div>
+      </div>
+      <p class="text-sm mb-8">Il motore di default di questo tool per l'analisi testuale. Nella nostra esperienza coglie meglio le sfumature di tono/stile del canale a partire dallo script. Nessun livello gratuito, ma il costo per un'analisi è frazioni di centesimo (~1$ ogni milione di parole lette, ~5$ ogni milione scritte).</p>
+      <a class="text-xs" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Crea chiave Anthropic →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">GPT-4o mini — OpenAI</span>
+        <div class="model-card-tags"><span class="tag tag-grigio">A pagamento</span><span class="tag tag-grigio">Economico</span></div>
+      </div>
+      <p class="text-sm mb-8">Molto economico e rapido. La famiglia GPT-4o è in fase di transizione verso la serie GPT-5 di OpenAI: se in futuro smette di rispondere o dà errori, potrebbe servire aggiornare il nome del modello nella configurazione.</p>
+      <a class="text-xs" href="https://platform.openai.com/docs/models" target="_blank" rel="noopener">Documentazione OpenAI →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">Qwen2.5-7B-Instruct — Hugging Face</span>
+        <div class="model-card-tags"><span class="tag tag-maker">Gratis</span></div>
+      </div>
+      <p class="text-sm mb-8">Completamente gratuito (stesso limite di 300 richieste/ora di FLUX). Qualità di analisi più semplice rispetto ai modelli sopra — va bene per un primo test senza registrare chiavi a pagamento.</p>
+      <a class="text-xs" href="https://huggingface.co/Qwen/Qwen2.5-7B-Instruct" target="_blank" rel="noopener">Vedi il modello su Hugging Face →</a>
+    </div>
+
+    <!-- ── MODIFICA IMMAGINE ── -->
+    <div class="section-lbl mt-16" id="guide-edit" style="scroll-margin-top:70px;display:flex;align-items:center;gap:6px;"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-pencil"></use></svg> Modifica immagine (ritocchi su una miniatura già generata)</div>
+
+    <div class="model-card rec">
+      <div class="model-card-head">
+        <span class="model-card-name">FLUX.1 Kontext — fal.ai</span>
+        <div class="model-card-tags"><span class="tag tag-sabbia">Il migliore</span><span class="tag tag-grigio">~0,04€/modifica</span></div>
+      </div>
+      <p class="text-sm mb-8">Lo standard attuale per modificare immagini via istruzioni testuali: capisce l'istruzione e mantiene coerenti stile e identità tra una modifica e l'altra, molto meglio di modelli più datati come Instruct-Pix2Pix. È già il motore fal.ai preconfigurato di default in questo tool.</p>
+      <div class="hint">Già configurato: provider "fal", modello <code>fal-ai/flux-pro/kontext</code>.</div>
+      <a class="text-xs" href="https://fal.ai/models/fal-ai/flux-pro/kontext" target="_blank" rel="noopener">Vedi il modello su fal.ai →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">gpt-image-1 (modifica) — OpenAI</span>
+        <div class="model-card-tags"><span class="tag tag-grigio">A pagamento</span><span class="tag tag-grigio">Alternativa solida</span></div>
+      </div>
+      <p class="text-sm mb-8">Stessa qualità pulita della generazione OpenAI, applicata alla modifica: carichi l'immagine e l'istruzione, senza dover disegnare una maschera. Stesso avviso di sopra sul ritiro pianificato per il 23 ottobre 2026.</p>
+      <a class="text-xs" href="https://platform.openai.com/docs/guides/image-generation" target="_blank" rel="noopener">Documentazione OpenAI →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">Instruct-Pix2Pix — Hugging Face</span>
+        <div class="model-card-tags"><span class="tag tag-maker">Gratis</span><span class="tag tag-life">Superato</span></div>
+      </div>
+      <p class="text-sm mb-8">Gratuito, ma è un modello del 2023: le modifiche sono meno precise e più "sporche" di FLUX Kontext, soprattutto su istruzioni articolate. Va bene per provare la funzione senza spendere, non per il risultato finale da consegnare.</p>
+      <a class="text-xs" href="https://huggingface.co/timbrooks/instruct-pix2pix" target="_blank" rel="noopener">Vedi il modello su Hugging Face →</a>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">Replicate (catalogo)</span>
+        <div class="model-card-tags"><span class="tag tag-grigio">A pagamento</span><span class="tag tag-grigio">Flessibile</span></div>
+      </div>
+      <p class="text-sm mb-8">Come per la generazione, puoi puntare qualsiasi modello di editing del catalogo Replicate — ad esempio lo stesso FLUX Kontext in una versione alternativa.</p>
+      <a class="text-xs" href="https://replicate.com/black-forest-labs/flux-kontext-pro" target="_blank" rel="noopener">Vedi FLUX Kontext su Replicate →</a>
+    </div>
+
+    <div class="hint mt-8 mb-12">Prezzi indicativi al cambio EUR/USD di settembre 2026, per immagine/modifica a risoluzione standard — variano leggermente in base a formato e provider. Aggiorneremo questa guida quando cambiamo i motori configurati di default.</div>
+  </div>
+
 </div>
 
 <!-- SHEET: gestione provider (Impostazioni) -->
@@ -551,7 +716,10 @@
     </div>
 
     <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap;gap:8px;">
-      <div class="section-lbl" style="margin:0;">Motore di modifica attivo</div>
+      <div class="flex items-center gap-6" style="margin:0;">
+        <div class="section-lbl" style="margin:0;">Motore di modifica attivo</div>
+        <span class="info-tip" onclick="goToGuide('edit')"><svg class="icon icon-sm" aria-hidden="true"><use href="assets/icons.svg#icon-info"></use></svg><span class="tip-bubble">Guida per scegliere il modello migliore</span></span>
+      </div>
       <div class="model-picker" id="editModelPicker">
         <button type="button" class="btn btn-s btn-sm" id="editModelPickerBtn" onclick="toggleModelPicker('edit')">—</button>
         <div class="model-picker-list" id="editModelPickerList"></div>

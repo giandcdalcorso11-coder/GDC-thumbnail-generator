@@ -603,6 +603,17 @@ function goToSettingsProviders(){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Apre la tab "Guida modelli" e scorre alla sezione del task pertinente
+// (text/image/edit) — raggiunta dalle icone info vicino ai selettori modello.
+function goToGuide(section){
+  document.querySelectorAll('.model-picker.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+  document.querySelector('#mainTabBar [data-tab="view-guide"]')?.click();
+  setTimeout(() => {
+    document.getElementById('guide-' + section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+
 let SELECTED_REF_IDS = new Set();
 function renderGenRefGrid(){
   const el = document.getElementById('genRefGrid');
